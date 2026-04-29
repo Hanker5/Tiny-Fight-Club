@@ -6,7 +6,7 @@ import { emitter } from './events.js';
 // when the simulation emits events.
 
 emitter.on('match:start', ({ ball1, ball2, round }) => {
-    const rName = ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'][round];
+    const rName = state.roundLabels[round] ?? `Round ${round + 1}`;
     const mh    = document.getElementById('match-header');
     mh.innerHTML = `<span class="text-slate-400 text-sm block -mt-1 mb-1">${rName}</span><span style="color:${ball1.color}">${ball1.name}</span> <span class="text-slate-500 mx-2 text-3xl">VS</span> <span style="color:${ball2.color}">${ball2.name}</span>`;
     mh.classList.remove('hidden');
@@ -44,8 +44,8 @@ export function renderBracket() {
     // No min-width — match boxes flex to fill available panel space
     let html = `<div class="flex h-full w-full min-w-0">`;
 
-    for (let r = 0; r < 4; r++) {
-        html += `<div class="flex-1 min-w-0 flex flex-col justify-around px-1 relative ${r < 3 ? 'border-r border-slate-700/50' : ''}">`;
+    for (let r = 0; r < state.bracket.length; r++) {
+        html += `<div class="flex-1 min-w-0 flex flex-col justify-around px-1 relative ${r < state.bracket.length - 1 ? 'border-r border-slate-700/50' : ''}">`;
 
         for (let m = 0; m < state.bracket[r].length; m++) {
             const match = state.bracket[r][m];

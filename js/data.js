@@ -14,5 +14,8 @@ export const baseBalls = [
     { name: 'Pulsar',  color: '#0ea5e9', ability: 'Pulse',   hp: 140, maxHp: 140, r: 70, mass: 1.6, speed: 2.8, damage: 8,  desc: 'Emits a repelling, damaging energy shockwave.' },
     { name: 'Swarm',   color: '#a3e635', ability: 'Minion',  hp: 100, maxHp: 100, r: 60, mass: 1,   speed: 3.6, damage: 5,  desc: 'Spawns small homing drones to harass.' },
     { name: 'Thorn',   color: '#14b8a6', ability: 'Reflect', hp: 160, maxHp: 160, r: 67, mass: 1.8, speed: 2.5, damage: 6,  desc: 'Reflects 40% of taken damage back to attacker.' },
-    { name: 'Comet',   color: '#fb923c', ability: 'Charge',  hp: 120, maxHp: 120, r: 61, mass: 1.4, speed: 3.0, damage: 14, desc: 'Builds massive momentum in a straight line.' }
+    { name: 'Comet',   color: '#fb923c', ability: 'Charge',  hp: 120, maxHp: 120, r: 61, mass: 1.4, speed: 3.0, damage: 14, desc: 'Builds massive momentum in a straight line.' },
+    { name: 'Enma',    color: '#f59e0b', ability: 'Boomerang', hp: 115, maxHp: 115, r: 60, mass: 1.15, speed: 3.9, damage: 8,  desc: 'Throws a curved returning blade and gains brief Momentum Armor after each throw.' },
+    { name: 'Malik',   color: '#111827', ability: 'Brand',     hp: 105, maxHp: 105, r: 58, mass: 1.05, speed: 3.6, damage: 7,  desc: 'Launches black flame that permanently burns away part of the enemy max HP.' },
+    { name: 'Vanta',   color: '#dc2626', ability: 'LastStand', hp: 130, maxHp: 130, r: 64, mass: 1.35, speed: 3.3, damage: 9,  desc: 'Grows deadlier and tougher as health falls, then lunges in for brutal trades.' }
 ];

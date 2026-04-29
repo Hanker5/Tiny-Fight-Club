@@ -13,6 +13,7 @@ export class Ball {
         this.ability = def.ability;
         this.maxHp = def.maxHp;
         this.hp = def.hp;
+        this.originalMaxHp = def.maxHp;
         this.r = def.r;
         this.mass = def.mass;
         this.speed = def.speed;
@@ -33,6 +34,9 @@ export class Ball {
         this.grappling   = 0;
         this.charging    = 0;
         this.pulseVisual = 0;
+        this.momentumArmor = 0;
+        this.boomerangActive = false;
+        this.brandWindow = 0;
 
         this.behaviorState = 'AGGRESSIVE';
         this.behaviorTimer = 0;
@@ -44,8 +48,53 @@ export class Ball {
         this.poisonTickTimer = 0;
     }
 
+    getLastStandBonus() {
+        if (this.ability !== 'LastStand') return { damage: 0, reduction: 0 };
+
+        const hpRatio = Math.max(0, this.hp) / this.maxHp;
+        if (hpRatio >= 1) return { damage: 0, reduction: 0 };
+        if (hpRatio >= 0.5) {
+            const t = (1 - hpRatio) / 0.5;
+            return { damage: 0.25 * t, reduction: 0.15 * t };
+        }
+        if (hpRatio >= 0.25) {
+            const t = (0.5 - hpRatio) / 0.25;
+            return { damage: 0.25 + 0.25 * t, reduction: 0.15 + 0.15 * t };
+        }
+        const t = Math.min(1, (0.25 - hpRatio) / 0.15);
+        return { damage: 0.5 + 0.25 * t, reduction: 0.3 + 0.1 * t };
+    }
+
+    getDamageMultiplier() {
+        let multiplier = 1;
+        if (this.ability === 'Berserk') {
+            multiplier *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.6;
+        }
+        multiplier *= 1 + this.getLastStandBonus().damage;
+        return multiplier;
+    }
+
+    getDamageReduction() {
+        let reduction = 0;
+        if (this.ability === 'Boomerang') reduction += this.momentumArmor;
+        reduction += this.getLastStandBonus().reduction;
+        return Math.min(0.75, reduction);
+    }
+
+    applyBrand(amount) {
+        const capLoss = this.originalMaxHp * 0.5;
+        const currentLoss = this.originalMaxHp - this.maxHp;
+        const addLoss = Math.min(capLoss - currentLoss, amount);
+        if (addLoss <= 0) return;
+
+        this.maxHp -= addLoss;
+        this.hp = Math.min(this.hp, this.maxHp);
+        emitter.emit('fx:text', { text: 'BRANDED!', x: this.x, y: this.y - this.r - 32, color: '#111827' });
+    }
+
     takeDamage(amount, source, isReflect = false) {
         if (this.intangible > 0) return;
+        amount *= 1 - this.getDamageReduction();
 
         if (this.shield > 0) {
             this.shield -= amount;
@@ -87,6 +136,8 @@ export class Ball {
         if (this.intangible  > 0) this.intangible   -= dt;
         if (this.pulseVisual > 0) this.pulseVisual   -= dt;
         if (this.flash       > 0) this.flash         -= dt;
+        if (this.momentumArmor > 0) this.momentumArmor = Math.max(0, this.momentumArmor - dt * 0.25);
+        if (this.brandWindow > 0) this.brandWindow -= dt;
 
         if (this.poisoned > 0) {
             this.poisoned        -= dt;
@@ -148,6 +199,17 @@ export class Ball {
                 } else if (this.ability === 'Minion') {
                     this.behaviorState = (dist < 200) ? 'RETREATING' : 'FLANKING';
                 } else if (this.ability === 'Berserk') {
+                    this.behaviorState = 'AGGRESSIVE';
+                } else if (this.ability === 'Boomerang') {
+                    if (this.boomerangActive) this.behaviorState = 'FLANKING';
+                    else if (dist > 420) this.behaviorState = 'AGGRESSIVE';
+                    else if (abilityReady) this.behaviorState = 'FLANKING';
+                    else this.behaviorState = 'RETREATING';
+                } else if (this.ability === 'Brand') {
+                    if (this.brandWindow > 0) this.behaviorState = 'RETREATING';
+                    else if (dist > 420) this.behaviorState = 'AGGRESSIVE';
+                    else this.behaviorState = abilityReady ? 'FLANKING' : 'RETREATING';
+                } else if (this.ability === 'LastStand') {
                     this.behaviorState = 'AGGRESSIVE';
                 } else if (this.ability === 'Poison') {
                     if (enemy.poisoned > 0) {
@@ -225,6 +287,7 @@ export class Ball {
 
             let activeSpeed = this.speed;
             if (this.ability === 'Berserk') activeSpeed *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.3;
+            if (this.ability === 'LastStand') activeSpeed *= 1 + this.getLastStandBonus().damage * 0.35;
 
             const angleDiff = normalizeAngle(targetAngle - this.angle);
             let turnSpeed = 0.05 * (activeSpeed / 4) * F;
@@ -297,6 +360,40 @@ export class Ball {
                 this.shield          = 50;
                 this.abilityCooldown = 7.0;
                 emitter.emit('ability:used', { ball: this, ability: 'Shield', x: this.x, y: this.y });
+
+            } else if (this.ability === 'Boomerang' && !this.boomerangActive && dist > 170 && dist < 500) {
+                const px = this.x + Math.cos(this.angle) * (this.r + 10);
+                const py = this.y + Math.sin(this.angle) * (this.r + 10);
+                const blade = new Projectile(px, py, enemy, this, this.angle, false, 11, 12);
+                blade.type = 'Boomerang';
+                blade.r = 9;
+                blade.life = 2.2;
+                blade.maxRange = Math.min(320, Math.max(220, dist * 0.7));
+                blade.curveDir = this.flankDir;
+                state.projectiles.push(blade);
+                this.boomerangActive = true;
+                this.momentumArmor = 0.3;
+                this.abilityCooldown = 3.2;
+                emitter.emit('ability:used', { ball: this, ability: 'Boomerang', x: this.x, y: this.y });
+
+            } else if (this.ability === 'Brand' && dist < 440 && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.28) {
+                const px = this.x + Math.cos(this.angle) * (this.r + 10);
+                const py = this.y + Math.sin(this.angle) * (this.r + 10);
+                const flame = new Projectile(px, py, enemy, this, this.angle, false, 9, 13);
+                flame.type = 'Brand';
+                flame.r = 8;
+                flame.life = 1.6;
+                state.projectiles.push(flame);
+                this.abilityCooldown = 3.8;
+                this.brandWindow = 1.1;
+                emitter.emit('ability:used', { ball: this, ability: 'Brand', x: this.x, y: this.y });
+
+            } else if (this.ability === 'LastStand' && dist < 260 && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.35) {
+                const surge = 10 + this.getLastStandBonus().damage * 6;
+                this.vx += Math.cos(this.angle) * surge;
+                this.vy += Math.sin(this.angle) * surge;
+                this.abilityCooldown = 1.5;
+                emitter.emit('ability:used', { ball: this, ability: 'LastStand', x: this.x, y: this.y });
 
             } else if (this.ability === 'Missile') {
                 const px = this.x + Math.cos(this.angle) * (this.r + 10);
@@ -377,20 +474,74 @@ export class Projectile {
         this.active  = true;
         this.life    = homing ? 4.0 : 1.33;
         this.isSwarm = false;
+        this.type = 'Default';
+        this.returning = false;
+        this.maxRange = 0;
+        this.distanceTraveled = 0;
+        this.curveDir = 1;
+        this.hitOutbound = false;
+        this.hitReturn = false;
     }
+
+    deactivate() {
+        this.active = false;
+        if (this.type === 'Boomerang' && this.source) this.source.boomerangActive = false;
+    }
+
     update(dt) {
         this.life -= dt;
-        if (this.life <= 0) { this.active = false; return; }
+        if (this.life <= 0) { this.deactivate(); return; }
 
         const dx   = this.target.x - this.x;
         const dy   = this.target.y - this.y;
         const dist = Math.hypot(dx, dy);
 
+        if (this.type === 'Boomerang') {
+            const speedNow = Math.hypot(this.vx, this.vy);
+            this.distanceTraveled += speedNow * dt * 60;
+            if (!this.returning) {
+                const angle = Math.atan2(this.vy, this.vx) + 0.03 * this.curveDir * dt * 60;
+                this.vx = Math.cos(angle) * this.speed;
+                this.vy = Math.sin(angle) * this.speed;
+                if (this.distanceTraveled >= this.maxRange) this.returning = true;
+            } else {
+                const sx = this.source.x - this.x;
+                const sy = this.source.y - this.y;
+                const sourceDist = Math.hypot(sx, sy) || 1;
+                const px = -sy / sourceDist;
+                const py = sx / sourceDist;
+                const arcX = this.source.x + px * 90 * this.curveDir;
+                const arcY = this.source.y + py * 90 * this.curveDir;
+                const arcDx = arcX - this.x;
+                const arcDy = arcY - this.y;
+                const arcDist = Math.hypot(arcDx, arcDy) || 1;
+                this.vx += (arcDx / arcDist) * 1.3 * dt * 60;
+                this.vy += (arcDy / arcDist) * 1.3 * dt * 60;
+                const v = Math.hypot(this.vx, this.vy) || 1;
+                this.vx = (this.vx / v) * this.speed;
+                this.vy = (this.vy / v) * this.speed;
+                if (sourceDist < this.source.r + 16) {
+                    this.deactivate();
+                    return;
+                }
+            }
+        }
+
         if (dist < this.target.r + this.r && this.target.intangible <= 0) {
-            this.target.takeDamage(this.damage, this.source);
-            this.active = false;
+            const canHit = this.type !== 'Boomerang'
+                || (!this.returning && !this.hitOutbound)
+                || (this.returning && !this.hitReturn);
+
+            if (canHit) {
+                this.target.takeDamage(this.damage * this.source.getDamageMultiplier(), this.source);
+                if (this.type === 'Brand') this.target.applyBrand(this.damage * 0.45);
+                if (!this.returning) this.hitOutbound = true;
+                else this.hitReturn = true;
+            }
+
+            if (this.type !== 'Boomerang') this.deactivate();
             emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.color, count: 12, speed: 3 });
-            return;
+            if (this.type !== 'Boomerang') return;
         }
 
         if (this.homing) {

@@ -3,7 +3,8 @@ import { kv } from '@vercel/kv';
 // All 16 fighter names — used to fetch win counts in one batch.
 const FIGHTER_NAMES = [
     'Dash', 'Titan', 'Dracula', 'Ninja', 'Zerk', 'Paladin', 'Venom', 'Mage',
-    'Spike', 'Sniper', 'Hook', 'Ghost', 'Pulsar', 'Swarm', 'Thorn', 'Comet'
+    'Spike', 'Sniper', 'Hook', 'Ghost', 'Pulsar', 'Swarm', 'Thorn', 'Comet',
+    'Enma', 'Malik', 'Vanta'
 ];
 
 export default async function handler(req, res) {

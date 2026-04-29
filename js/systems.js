@@ -45,8 +45,8 @@ export function resolveCollision(b1, b2) {
                 let dmg1 = b2.baseDamage + impactForce * 0.4;
                 let dmg2 = b1.baseDamage + impactForce * 0.4;
 
-                if (b2.ability === 'Berserk') dmg1 *= 1 + ((b2.maxHp - b2.hp) / b2.maxHp) * 0.6;
-                if (b1.ability === 'Berserk') dmg2 *= 1 + ((b1.maxHp - b1.hp) / b1.maxHp) * 0.6;
+                dmg1 *= b2.getDamageMultiplier();
+                dmg2 *= b1.getDamageMultiplier();
 
                 let validHitOccurred = false;
 
