@@ -72,21 +72,26 @@ export function drawBall(ctx, ball) {
 }
 
 export function drawHazard(ctx, hazard) {
+    const alpha = Math.min(1, hazard.life);  // fade out during last second
+    const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 120);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.shadowColor = '#f59e0b';
+    ctx.shadowBlur = 18 * pulse;
+    ctx.strokeStyle = '#fde68a';
+    ctx.lineWidth = 2.5;
     ctx.fillStyle = '#d97706';
-    ctx.globalAlpha = Math.min(1, hazard.life / 60);
     ctx.beginPath();
-    for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
+    for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 - Math.PI / 2;
         ctx.lineTo(hazard.x + Math.cos(a) * hazard.r, hazard.y + Math.sin(a) * hazard.r);
-        const a2 = ((i + 0.5) / 6) * Math.PI * 2;
-        ctx.lineTo(hazard.x + Math.cos(a2) * (hazard.r / 2), hazard.y + Math.sin(a2) * (hazard.r / 2));
+        const a2 = ((i + 0.5) / 8) * Math.PI * 2 - Math.PI / 2;
+        ctx.lineTo(hazard.x + Math.cos(a2) * (hazard.r * 0.45), hazard.y + Math.sin(a2) * (hazard.r * 0.45));
     }
     ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1;
     ctx.stroke();
-    ctx.globalAlpha = 1.0;
+    ctx.restore();
 }
 
 export function drawProjectile(ctx, proj) {
