@@ -11,6 +11,7 @@ emitter.on('match:start', ({ ball1, ball2, round }) => {
     mh.innerHTML = `<span class="text-slate-400 text-sm block -mt-1 mb-1">${rName}</span><span style="color:${ball1.color}">${ball1.name}</span> <span class="text-slate-500 mx-2 text-3xl">VS</span> <span style="color:${ball2.color}">${ball2.name}</span>`;
     mh.classList.remove('hidden');
     renderBracket();
+    renderRoster();
 });
 
 emitter.on('match:end', () => {
@@ -51,22 +52,34 @@ export function renderBracket() {
             const match = state.bracket[r][m];
             const isActive  = (r === state.currentRound && m === state.currentMatch && state.gameState !== 'BRACKET');
             const isWaiting = (r === state.currentRound && m === state.currentMatch && state.gameState === 'BRACKET');
+            const p1Exists = Boolean(match.p1);
+            const p2Exists = Boolean(match.p2);
+            const hasAnyFighter = p1Exists || p2Exists || Boolean(match.winner);
 
             let borderClass = 'border-slate-700';
             if (isActive)       borderClass = 'border-yellow-400 glow ring-2 ring-yellow-400/50';
             else if (isWaiting) borderClass = 'border-blue-400 glow';
 
-            html += `<div class="bg-slate-800 rounded-lg p-1.5 border-2 ${borderClass} flex flex-col gap-0.5 shadow-md z-10 my-0.5">`;
+            if (!hasAnyFighter && !isActive && !isWaiting) {
+                html += `<div class="my-0.5 min-h-10"></div>`;
+                continue;
+            }
 
-            const p1C = match.p1 ? match.p1.color : '#475569';
-            const p1N = match.p1 ? match.p1.name : 'TBD';
-            const p1W = match.winner === match.p1 ? 'font-black text-white' : (match.winner ? 'text-slate-600 line-through' : 'text-slate-300 font-semibold');
-            html += `<div class="flex items-center gap-1 text-xs ${p1W}"><div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${p1C}"></div><span class="truncate">${p1N}</span></div>`;
+            html += `<div class="bg-slate-800 rounded-lg p-1.5 border-2 ${borderClass} flex flex-col gap-0.5 shadow-md z-10 my-0.5 min-h-10">`;
 
-            const p2C = match.p2 ? match.p2.color : '#475569';
-            const p2N = match.p2 ? match.p2.name : 'TBD';
-            const p2W = match.winner === match.p2 ? 'font-black text-white' : (match.winner ? 'text-slate-600 line-through' : 'text-slate-300 font-semibold');
-            html += `<div class="flex items-center gap-1 text-xs ${p2W}"><div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${p2C}"></div><span class="truncate">${p2N}</span></div>`;
+            if (p1Exists) {
+                const p1W = match.winner === match.p1 ? 'font-black text-white' : (match.winner ? 'text-slate-600 line-through' : 'text-slate-300 font-semibold');
+                html += `<div class="flex items-center gap-1 text-xs ${p1W}"><div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${match.p1.color}"></div><span class="truncate">${match.p1.name}</span></div>`;
+            }
+
+            if (p2Exists) {
+                const p2W = match.winner === match.p2 ? 'font-black text-white' : (match.winner ? 'text-slate-600 line-through' : 'text-slate-300 font-semibold');
+                html += `<div class="flex items-center gap-1 text-xs ${p2W}"><div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${match.p2.color}"></div><span class="truncate">${match.p2.name}</span></div>`;
+            }
+
+            if (!p1Exists && !p2Exists) {
+                html += `<div class="text-xs text-slate-600 italic">Pending</div>`;
+            }
 
             html += `</div>`;
         }

@@ -1,12 +1,12 @@
 # Tiny Fight Club
 
-A browser-based 2D tournament simulator where 16 AI-controlled ball fighters compete in a single-elimination bracket. Sit back and watch — there's no player input during fights.
+A browser-based 2D tournament simulator where AI-controlled ball fighters compete in a single-elimination bracket. Sit back and watch - there's no player input during fights.
 
-**[Play it live →](https://tiny-fight-club.vercel.app)**
+**[Play it live ->](https://tiny-fight-club.vercel.app)**
 
 ## Fighters
 
-16 unique fighters, each with a distinct ability:
+19 unique fighters, each with a distinct ability:
 
 | Fighter | Ability | Playstyle |
 |---------|---------|-----------|
@@ -16,7 +16,7 @@ A browser-based 2D tournament simulator where 16 AI-controlled ball fighters com
 | Ninja | Teleport | Periodically teleports behind the opponent |
 | Zerk | Berserk | Damage and speed massively increase as HP drops |
 | Paladin | Shield | Periodically regenerates a protective shield |
-| Venom | Poison | Frontal strikes apply dangerous Damage-Over-Time |
+| Venom | Poison | Frontal strikes apply dangerous damage-over-time |
 | Mage | Missile | Stays away and fires homing magic missiles |
 | Spike | Trap | Leaves volatile traps behind |
 | Sniper | Laser | Fires fast, non-homing piercing shots |
@@ -26,10 +26,13 @@ A browser-based 2D tournament simulator where 16 AI-controlled ball fighters com
 | Swarm | Minion | Spawns small homing drones to harass |
 | Thorn | Reflect | Reflects 40% of taken damage back to attacker |
 | Comet | Charge | Builds massive momentum in a straight line |
+| Enma | Boomerang | Throws a curved returning blade and gains brief Momentum Armor |
+| Malik | Brand | Permanently burns away part of the enemy max HP with black flame |
+| Vanta | LastStand | Gains damage and defense as health falls |
 
 ## Running Locally
 
-No build step required. Serve `index.html` via a local HTTP server — direct `file://` loading will fail due to ES module CORS restrictions.
+No build step required. Serve `index.html` via a local HTTP server - direct `file://` loading will fail due to ES module CORS restrictions.
 
 ```bash
 # Option 1: Node http-server
@@ -41,7 +44,7 @@ python -m http.server
 # Option 3: VS Code Live Server extension
 ```
 
-### With API (leaderboard/history)
+### With API
 
 The `/api/*` endpoints use Vercel KV. To test them locally:
 
@@ -50,22 +53,22 @@ npm install
 npx vercel dev
 ```
 
-You'll need `KV_REST_API_URL` and `KV_REST_API_TOKEN` set in your environment. The game runs fine without them — API calls are fire-and-forget.
+You'll need `KV_REST_API_URL` and `KV_REST_API_TOKEN` set in your environment. The game runs fine without them - API calls are fire-and-forget.
 
 ## Architecture
 
 Vanilla JS + Canvas, no framework. Hybrid ECS-adjacent + event-driven pattern.
 
-```
+```text
 game.js (requestAnimationFrame loop)
-  ├── entities.js  — Ball.update(): AI decision tree + physics per frame
-  ├── systems.js   — resolveCollision(): impact, damage, special interactions
-  ├── renderer.js  — Stateless draw functions
-  │
-  └── On match events, emits via events.js:
-        ├── fx.js      → particles, floating damage text
-        ├── ui.js      → bracket DOM, overlays, leaderboard
-        └── game.js    → POST /api/record-match (fire-and-forget)
+  |- entities.js  - Ball.update(): AI decision tree + physics per frame
+  |- systems.js   - resolveCollision(): impact, damage, special interactions
+  |- renderer.js  - Stateless draw functions
+  |
+  `- On match events, emits via events.js:
+       |- fx.js    -> particles, floating damage text
+       |- ui.js    -> bracket DOM, overlays, leaderboard
+       `- game.js  -> POST /api/record-match (fire-and-forget)
 ```
 
 ### Key Files
@@ -73,21 +76,21 @@ game.js (requestAnimationFrame loop)
 | File | Responsibility |
 |------|----------------|
 | `js/game.js` | Main loop, tournament state machine, canvas/HiDPI setup |
-| `js/state.js` | Central singleton: bracket, active entities, game phase |
-| `js/entities.js` | `Ball` class — physics, HP, cooldowns, all AI + 16 ability implementations |
-| `js/systems.js` | `resolveCollision()` — elastic collision math, weapon hit detection, damage |
+| `js/state.js` | Central singleton: bracket, round labels, active entities, game phase |
+| `js/entities.js` | `Ball` class - physics, HP, cooldowns, AI, and fighter ability implementations |
+| `js/systems.js` | `resolveCollision()` - elastic collision math, weapon hit detection, damage |
 | `js/renderer.js` | Pure canvas draw functions (no state mutation) |
-| `js/ui.js` | DOM: bracket visualization, roster, leaderboard, overlay modal |
+| `js/ui.js` | DOM: bracket visualization, active fighters panel, leaderboard, overlay modal |
 | `js/fx.js` | Particle system, floating damage text |
 | `js/events.js` | Tiny `EventEmitter` singleton (`gameEvents`) |
-| `js/data.js` | 16 fighter stat/ability definitions |
+| `js/data.js` | Fighter stat and ability definitions |
 | `api/*.js` | Vercel serverless: record-match, leaderboard, history |
 
 ### Game State Machine
 
-`state.gamePhase` cycles: `BRACKET → FIGHTING → ANIMATING_WIN → BRACKET → ...`
+`state.gameState` cycles: `BRACKET -> FIGHTING -> ANIMATING_WIN -> BRACKET -> ...`
 
-4 rounds (8 → 4 → 2 → 1 matches) per tournament.
+Tournament size scales to the roster and pads to the next power-of-two bracket with automatic byes.
 
 ## Deployment
 
