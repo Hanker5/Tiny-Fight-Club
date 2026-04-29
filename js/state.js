@@ -11,5 +11,9 @@ export const state = {
     particles: [],
     floatingTexts: [],
     hazards: [],
-    confetti: []
+    confetti: [],
+    matchTime: 0,
+    suddenDeath: false,
+    speedMultiplier: 1,
+    obstacles: []
 };

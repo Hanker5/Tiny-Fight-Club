@@ -1,17 +1,18 @@
 import { state } from './state.js';
 import { baseBalls } from './data.js';
 import { Ball } from './entities.js';
-import { resolveCollision } from './systems.js';
+import { resolveCollision, resolveObstacleCollision } from './systems.js';
 import { createParticles, createConfetti } from './fx.js';
 import { emitter } from './events.js';
 import { normalizeAngle } from './utils.js';
 import {
     drawBall, drawHazard, drawProjectile,
     drawParticle, drawFloatingText,
-    drawGrappleLine, drawArenaBorder, drawConfetti
+    drawGrappleLine, drawArenaBorder, drawConfetti,
+    drawObstacles
 } from './renderer.js';
 // ui.js: imported for side-effects (event subscriptions) + direct overlay/render calls
-import { showOverlay, hideOverlay, renderBracket, renderRoster } from './ui.js';
+import { showOverlay, hideOverlay, renderBracket, renderRoster, updateMatchTimer } from './ui.js';
 
 // Record each match result to the backend — fire-and-forget, never throws.
 emitter.on('match:end', async ({ winner, loser, round, duration }) => {
@@ -36,6 +37,14 @@ let canvas, ctx;
 
 const VIRTUAL_W = 1056;
 const VIRTUAL_H = 1080;
+
+// Static pillar layout — 4 pillars placed symmetrically, clear of center and spawn zones.
+const OBSTACLES = [
+    { x: 264, y: 270,  r: 40 },
+    { x: 792, y: 270,  r: 40 },
+    { x: 264, y: 810,  r: 40 },
+    { x: 792, y: 810,  r: 40 }
+];
 
 function resizeCanvas() {
     const container = document.getElementById('arena-container');
@@ -128,6 +137,9 @@ function startNextMatch() {
     state.floatingTexts = [];
     state.hazards       = [];
     state.confetti      = [];
+    state.obstacles     = OBSTACLES;
+    state.matchTime     = 0;
+    state.suddenDeath   = false;
     state.gameState     = 'FIGHTING';
     state.matchStartTime = performance.now();
 
@@ -188,6 +200,7 @@ function endMatch(winnerDef, loserDef, duration) {
 
 // --- MAIN LOOP ---
 // Delta-time loop: no FPS cap, dt in seconds capped at 50ms to prevent spiral.
+// simDt = dt * speedMultiplier drives all entity updates so speed button scales everything.
 
 let then;
 let winAnimTime = 0;
@@ -195,8 +208,9 @@ let winAnimTime = 0;
 function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 
-    const dt = Math.min((timestamp - then) / 1000, 0.05);
-    then = timestamp;
+    const dt    = Math.min((timestamp - then) / 1000, 0.05);
+    then        = timestamp;
+    const simDt = dt * state.speedMultiplier;
 
     // Keep backing store in sync with container + DPR
     const container = document.getElementById('arena-container');
@@ -211,14 +225,36 @@ function gameLoop(timestamp) {
 
     if (state.gameState === 'FIGHTING') {
         // Update
-        state.ball1.update(state.ball2, VIRTUAL_W, VIRTUAL_H, dt);
-        state.ball2.update(state.ball1, VIRTUAL_W, VIRTUAL_H, dt);
+        state.matchTime += simDt;
+
+        // Trigger sudden death at 60 simulated seconds
+        if (state.matchTime >= 60 && !state.suddenDeath) {
+            state.suddenDeath = true;
+            emitter.emit('match:suddendeath');
+        }
+
+        // Escalating damage during sudden death — doubles every 10s
+        if (state.suddenDeath) {
+            const dps = Math.pow(2, Math.floor((state.matchTime - 60) / 10)) * 5;
+            state.ball1.takeDamage(dps * simDt, null);
+            state.ball2.takeDamage(dps * simDt, null);
+        }
+
+        updateMatchTimer(state.matchTime, state.suddenDeath);
+
+        state.ball1.update(state.ball2, VIRTUAL_W, VIRTUAL_H, simDt);
+        state.ball2.update(state.ball1, VIRTUAL_W, VIRTUAL_H, simDt);
         resolveCollision(state.ball1, state.ball2);
 
-        state.projectiles.forEach(p => p.update(dt));
-        state.particles.forEach(p => p.update(dt));
-        state.floatingTexts.forEach(ft => ft.update(dt));
-        state.hazards.forEach(h => h.update(h.source === state.ball1 ? state.ball2 : state.ball1, dt));
+        state.obstacles.forEach(obs => {
+            resolveObstacleCollision(state.ball1, obs);
+            resolveObstacleCollision(state.ball2, obs);
+        });
+
+        state.projectiles.forEach(p => p.update(simDt));
+        state.particles.forEach(p => p.update(simDt));
+        state.floatingTexts.forEach(ft => ft.update(simDt));
+        state.hazards.forEach(h => h.update(h.source === state.ball1 ? state.ball2 : state.ball1, simDt));
 
         state.projectiles   = state.projectiles.filter(p => p.active);
         state.particles     = state.particles.filter(p => p.life > 0);
@@ -233,6 +269,7 @@ function gameLoop(timestamp) {
         ctx.rect(0, 0, VIRTUAL_W, VIRTUAL_H);
         ctx.clip();
 
+        drawObstacles(ctx, state.obstacles);
         state.hazards.forEach(h => drawHazard(ctx, h));
 
         if (state.ball1.grappling > 0 && state.ball2.intangible <= 0) drawGrappleLine(ctx, state.ball1, state.ball2);
@@ -273,29 +310,30 @@ function gameLoop(timestamp) {
             winAnimTime  = 0;
             createConfetti(200, VIRTUAL_W);
             state.gameState = 'ANIMATING_WIN';
-            const duration = (performance.now() - state.matchStartTime) / 1000;
-            setTimeout(() => endMatch(winner.def, loser.def, duration), 3500);
+            const duration  = state.matchTime;
+            const animDelay = Math.round(3500 / state.speedMultiplier);
+            setTimeout(() => endMatch(winner.def, loser.def, duration), animDelay);
         }
 
     } else if (state.gameState === 'ANIMATING_WIN') {
-        winAnimTime += dt;
+        winAnimTime += simDt;
         const winner = state.ball1.hp > 0 ? state.ball1 : state.ball2;
 
-        winner.vx += (VIRTUAL_W / 2 - winner.x) * 0.001 * dt * 60;
-        winner.vy += (VIRTUAL_H / 2 - winner.y) * 0.001 * dt * 60;
-        winner.vx *= Math.pow(0.95, dt * 60);
-        winner.vy *= Math.pow(0.95, dt * 60);
-        winner.x  += winner.vx * dt * 60;
-        winner.y  += winner.vy * dt * 60;
+        winner.vx += (VIRTUAL_W / 2 - winner.x) * 0.001 * simDt * 60;
+        winner.vy += (VIRTUAL_H / 2 - winner.y) * 0.001 * simDt * 60;
+        winner.vx *= Math.pow(0.95, simDt * 60);
+        winner.vy *= Math.pow(0.95, simDt * 60);
+        winner.x  += winner.vx * simDt * 60;
+        winner.y  += winner.vy * simDt * 60;
 
         const angleDiff = normalizeAngle(0 - winner.angle);
         if (Math.abs(angleDiff) > 0.05) {
-            winner.angle += (angleDiff > 0 ? 0.05 : -0.05) * dt * 60;
+            winner.angle += (angleDiff > 0 ? 0.05 : -0.05) * simDt * 60;
         }
 
-        state.confetti.forEach(c => c.update(dt));
-        state.particles.forEach(p => p.update(dt));
-        state.floatingTexts.forEach(ft => ft.update(dt));
+        state.confetti.forEach(c => c.update(simDt));
+        state.particles.forEach(p => p.update(simDt));
+        state.floatingTexts.forEach(ft => ft.update(simDt));
         state.confetti      = state.confetti.filter(c => c.life > 0);
         state.particles     = state.particles.filter(p => p.life > 0);
         state.floatingTexts = state.floatingTexts.filter(ft => ft.life > 0);
@@ -339,6 +377,14 @@ window.onload = () => {
 
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
+
+    const speedBtn = document.getElementById('speed-btn');
+    speedBtn.addEventListener('click', () => {
+        const speeds = [1, 2, 4];
+        const cur = speeds.indexOf(state.speedMultiplier);
+        state.speedMultiplier = speeds[(cur + 1) % speeds.length];
+        speedBtn.textContent = `${state.speedMultiplier}×`;
+    });
 
     initTournament();
     then = performance.now();

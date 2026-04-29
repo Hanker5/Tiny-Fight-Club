@@ -145,3 +145,21 @@ export function drawArenaBorder(ctx, w, h) {
     ctx.lineWidth = 6;
     ctx.strokeRect(3, 3, w - 6, h - 6);
 }
+
+export function drawObstacles(ctx, obstacles) {
+    obstacles.forEach(obs => {
+        const grad = ctx.createRadialGradient(
+            obs.x - obs.r * 0.3, obs.y - obs.r * 0.3, obs.r * 0.1,
+            obs.x, obs.y, obs.r
+        );
+        grad.addColorStop(0, '#64748b');
+        grad.addColorStop(1, '#1e293b');
+        ctx.beginPath();
+        ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    });
+}

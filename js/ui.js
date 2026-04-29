@@ -10,6 +10,8 @@ emitter.on('match:start', ({ ball1, ball2, round }) => {
     const mh    = document.getElementById('match-header');
     mh.innerHTML = `<span class="text-slate-400 text-sm block -mt-1 mb-1">${rName}</span><span style="color:${ball1.color}">${ball1.name}</span> <span class="text-slate-500 mx-2 text-3xl">VS</span> <span style="color:${ball2.color}">${ball2.name}</span>`;
     mh.classList.remove('hidden');
+    document.getElementById('match-timer').classList.remove('hidden');
+    document.getElementById('speed-btn').classList.remove('hidden');
     renderBracket();
 });
 
@@ -17,7 +19,26 @@ emitter.on('match:end', () => {
     renderBracket();
     renderRoster();
     document.getElementById('match-header').classList.add('hidden');
+    document.getElementById('match-timer').classList.add('hidden');
+    document.getElementById('speed-btn').classList.add('hidden');
 });
+
+export function updateMatchTimer(matchTime, suddenDeath) {
+    const el = document.getElementById('match-timer');
+    if (!el) return;
+    if (suddenDeath) {
+        el.textContent = 'SUDDEN DEATH';
+        el.style.color = '#ef4444';
+        el.style.borderColor = '#ef4444';
+    } else {
+        const remaining = Math.max(0, 60 - matchTime);
+        const mins = Math.floor(remaining / 60);
+        const secs = Math.floor(remaining % 60);
+        el.textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+        el.style.color = remaining <= 10 ? '#f87171' : '#f1f5f9';
+        el.style.borderColor = remaining <= 10 ? '#f87171' : '';
+    }
+}
 
 export function showOverlay(title, desc, btnText, action, color = 'white') {
     const overlay = document.getElementById('overlay');
@@ -137,7 +158,7 @@ export function renderRoster() {
     container.innerHTML = html;
 }
 
-// ─── Leaderboard ─────────────────────────────────────────────���───────────────
+// ─── Leaderboard ──────────────────────────────────────────────────────────────
 
 async function renderLeaderboard() {
     const container = document.getElementById('leaderboard-container');

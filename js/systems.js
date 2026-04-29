@@ -86,3 +86,24 @@ export function resolveCollision(b1, b2) {
         }
     }
 }
+
+export function resolveObstacleCollision(ball, obs) {
+    if (ball.intangible > 0) return;
+    const dx   = ball.x - obs.x;
+    const dy   = ball.y - obs.y;
+    const dist = Math.hypot(dx, dy);
+    const min  = ball.r + obs.r;
+    if (dist < min && dist > 0) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        ball.x += nx * (min - dist);
+        ball.y += ny * (min - dist);
+        const velN = ball.vx * nx + ball.vy * ny;
+        if (velN < 0) {
+            ball.vx -= 2 * velN * nx;
+            ball.vy -= 2 * velN * ny;
+            ball.vx += -ny * (Math.random() - 0.5) * 2;
+            ball.vy +=  nx * (Math.random() - 0.5) * 2;
+        }
+    }
+}
