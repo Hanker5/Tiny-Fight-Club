@@ -73,7 +73,7 @@ export function drawBall(ctx, ball) {
 
 export function drawHazard(ctx, hazard) {
     ctx.fillStyle = '#d97706';
-    ctx.globalAlpha = Math.min(1, hazard.life / 12);
+    ctx.globalAlpha = Math.min(1, hazard.life / 60);
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2;
