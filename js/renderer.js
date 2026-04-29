@@ -151,6 +151,27 @@ export function drawArenaBorder(ctx, w, h) {
     ctx.strokeRect(3, 3, w - 6, h - 6);
 }
 
+export function drawSuddenDeathZone(ctx, w, h, inset) {
+    if (inset <= 0) return;
+    ctx.save();
+
+    // Red tint over danger strips
+    ctx.fillStyle = 'rgba(239, 68, 68, 0.13)';
+    ctx.fillRect(0, 0, w, inset);
+    ctx.fillRect(0, h - inset, w, inset);
+    ctx.fillRect(0, inset, inset, h - inset * 2);
+    ctx.fillRect(w - inset, inset, inset, h - inset * 2);
+
+    // Pulsing dashed border at the safe zone edge
+    const pulse = 0.55 + 0.45 * Math.sin(performance.now() / 250);
+    ctx.strokeStyle = `rgba(239, 68, 68, ${pulse.toFixed(2)})`;
+    ctx.lineWidth = 5;
+    ctx.setLineDash([14, 7]);
+    ctx.strokeRect(inset, inset, w - inset * 2, h - inset * 2);
+
+    ctx.restore();
+}
+
 export function drawObstacles(ctx, obstacles) {
     obstacles.forEach(obs => {
         const grad = ctx.createRadialGradient(

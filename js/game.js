@@ -9,7 +9,7 @@ import {
     drawBall, drawHazard, drawProjectile,
     drawParticle, drawFloatingText,
     drawGrappleLine, drawArenaBorder, drawConfetti,
-    drawObstacles
+    drawObstacles, drawSuddenDeathZone
 } from './renderer.js';
 // ui.js: imported for side-effects (event subscriptions) + direct overlay/render calls
 import { showOverlay, hideOverlay, renderBracket, renderRoster, updateMatchTimer } from './ui.js';
@@ -140,6 +140,7 @@ function startNextMatch() {
     state.obstacles     = OBSTACLES;
     state.matchTime     = 0;
     state.suddenDeath   = false;
+    state.shrinkInset   = 0;
     state.gameState     = 'FIGHTING';
     state.matchStartTime = performance.now();
 
@@ -233,11 +234,18 @@ function gameLoop(timestamp) {
             emitter.emit('match:suddendeath');
         }
 
-        // Escalating damage during sudden death — doubles every 10s
+        // Shrink arena during sudden death — zone expands over 60 simulated seconds
         if (state.suddenDeath) {
-            const dps = Math.pow(2, Math.floor((state.matchTime - 60) / 10)) * 5;
-            state.ball1.takeDamage(dps * simDt, null);
-            state.ball2.takeDamage(dps * simDt, null);
+            const shrinkProgress  = Math.min(1, (state.matchTime - 60) / 60);
+            state.shrinkInset     = shrinkProgress * 300;
+            const inset           = state.shrinkInset;
+            const dps             = 10 + shrinkProgress * 30;
+            for (const ball of [state.ball1, state.ball2]) {
+                if (ball.x < inset || ball.x > VIRTUAL_W - inset ||
+                    ball.y < inset || ball.y > VIRTUAL_H - inset) {
+                    ball.hp -= dps * simDt;
+                }
+            }
         }
 
         updateMatchTimer(state.matchTime, state.suddenDeath);
@@ -282,6 +290,7 @@ function gameLoop(timestamp) {
         state.floatingTexts.forEach(ft => drawFloatingText(ctx, ft));
 
         drawArenaBorder(ctx, VIRTUAL_W, VIRTUAL_H);
+        if (state.suddenDeath) drawSuddenDeathZone(ctx, VIRTUAL_W, VIRTUAL_H, state.shrinkInset);
         ctx.restore();
 
         // Win condition

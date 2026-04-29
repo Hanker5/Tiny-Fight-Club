@@ -14,6 +14,7 @@ export const state = {
     confetti: [],
     matchTime: 0,
     suddenDeath: false,
+    shrinkInset: 0,
     speedMultiplier: 1,
     obstacles: []
 };
