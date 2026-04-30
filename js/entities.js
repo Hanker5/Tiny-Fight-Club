@@ -536,7 +536,7 @@ export class Ball {
                     state.balls.push(minion);
                     emitter.emit('fx:particles', { x: minion.x, y: minion.y, color: this.color, count: 12, speed: 2 });
                 }
-                this.abilityCooldown = 8.0;
+                this.abilityCooldown = 7.0;
 
             } else if (this.ability === 'BlackPanther') {
                 // Speed burst when flanking close to enemy

@@ -1,6 +1,43 @@
 // Pure rendering functions — no imports from state.js or game logic.
 // Each function receives only what it needs to draw.
 
+// Color utility functions
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : null;
+}
+
+function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(x => {
+        const hex = Math.min(255, Math.max(0, Math.round(x))).toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+}
+
+function lightenColor(hex, percent) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+    return rgbToHex(
+        rgb.r + (255 - rgb.r) * (percent / 100),
+        rgb.g + (255 - rgb.g) * (percent / 100),
+        rgb.b + (255 - rgb.b) * (percent / 100)
+    );
+}
+
+function darkenColor(hex, percent) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return hex;
+    return rgbToHex(
+        rgb.r * (1 - percent / 100),
+        rgb.g * (1 - percent / 100),
+        rgb.b * (1 - percent / 100)
+    );
+}
+
 export function drawBall(ctx, ball) {
     ctx.save();
     ctx.translate(ball.x, ball.y);
@@ -127,12 +164,15 @@ export function drawTrail(ctx, trails) {
 
     for (const [, segs] of groups) {
         if (!segs.length) continue;
+        const color = segs[0].source.color;
+        const lighter = lightenColor(color, 40);
+        const darker = darkenColor(color, 20);
         ctx.save();
 
         // Outer glow layer
-        ctx.shadowColor = '#38bdf8';
+        ctx.shadowColor = lighter;
         ctx.shadowBlur = 18;
-        ctx.strokeStyle = '#0ea5e9';
+        ctx.strokeStyle = darker;
         ctx.lineWidth = segs[0].r * 2;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
@@ -144,7 +184,7 @@ export function drawTrail(ctx, trails) {
 
         // Bright inner core
         ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#e0f2fe';
+        ctx.strokeStyle = lighter;
         ctx.lineWidth = segs[0].r * 0.65;
         ctx.globalAlpha = 0.9;
         ctx.beginPath();
