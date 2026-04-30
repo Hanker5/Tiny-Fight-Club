@@ -53,7 +53,7 @@ export function resolveCollision(b1, b2) {
                 if (b1WeaponHits) {
                     b2.takeDamage(dmg2, b1);
                     if (b1.ability === 'Poison') {
-                        b2.poisoned = 3.0; // was 180 frames
+                        b2.poisoned = 3.5;
                         emitter.emit('ball:poisoned', { ball: b2 });
                     }
                     emitter.emit('fx:particles', { x: b1.x + nx * b1.r, y: b1.y + ny * b1.r, color: '#ef4444', count: 8, speed: 4 });
@@ -63,7 +63,7 @@ export function resolveCollision(b1, b2) {
                 if (b2WeaponHits) {
                     b1.takeDamage(dmg1, b2);
                     if (b2.ability === 'Poison') {
-                        b1.poisoned = 3.0;
+                        b1.poisoned = 3.5;
                         emitter.emit('ball:poisoned', { ball: b1 });
                     }
                     emitter.emit('fx:particles', { x: b1.x + nx * b1.r, y: b1.y + ny * b1.r, color: '#ef4444', count: 8, speed: 4 });

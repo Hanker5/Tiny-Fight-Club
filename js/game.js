@@ -9,10 +9,11 @@ import {
     drawBall, drawHazard, drawProjectile,
     drawParticle, drawFloatingText,
     drawGrappleLine, drawArenaBorder, drawConfetti,
-    drawObstacles, drawSuddenDeathZone
+    drawObstacles, drawSuddenDeathZone,
+    drawTrail, drawBoomerang, drawPortal
 } from './renderer.js';
 // ui.js: imported for side-effects (event subscriptions) + direct overlay/render calls
-import { showOverlay, hideOverlay, renderBracket, renderRoster, updateMatchTimer } from './ui.js';
+import { showOverlay, hideOverlay, renderBracket, renderRoster, updateMatchTimer, showBuilder, hideBuilder } from './ui.js';
 
 // Record each match result to the backend — fire-and-forget, never throws.
 emitter.on('match:end', async ({ winner, loser, round, duration }) => {
@@ -32,14 +33,16 @@ emitter.on('match:end', async ({ winner, loser, round, duration }) => {
     } catch { /* network failure — game continues unaffected */ }
 });
 
+let simPaused = false;
+
 // Canvas and rendering context live here — not in shared game state.
 let canvas, ctx;
 
-const VIRTUAL_W = 1056;
-const VIRTUAL_H = 1080;
+export const VIRTUAL_W = 1056;
+export const VIRTUAL_H = 1080;
 
 // Static pillar layout — 4 pillars placed symmetrically, clear of center and spawn zones.
-const OBSTACLES = [
+export const OBSTACLES = [
     { x: 264, y: 270,  r: 40 },
     { x: 792, y: 270,  r: 40 },
     { x: 264, y: 810,  r: 40 },
@@ -61,7 +64,14 @@ function getViewport() {
 }
 
 function initTournament() {
-    const roster = baseBalls.map(base => {
+    state.currentRound  = 0;
+    state.currentMatch  = 0;
+    state.tourneyWinner = null;
+    showBuilder(baseBalls, buildTournamentFromSelection);
+}
+
+function buildTournamentFromSelection(selectedDefs) {
+    const roster = selectedDefs.map(base => {
         const hpVar    = 0.9 + Math.random() * 0.2;
         const speedVar = 0.9 + Math.random() * 0.2;
         const dmgVar   = 0.9 + Math.random() * 0.2;
@@ -100,14 +110,11 @@ function initTournament() {
         ]
     ];
 
-    state.currentRound  = 0;
-    state.currentMatch  = 0;
-    state.tourneyWinner = null;
-    state.gameState     = 'BRACKET';
+    state.gameState = 'BRACKET';
 
     renderBracket();
     renderRoster();
-    showOverlay('Tiny Fight Club', '16 unique balls compete. Only one will survive.', 'Start Tournament', startNextMatch);
+    showOverlay('Tiny Fight Club', 'The arena is set. Let the battle begin.', 'Start Tournament', startNextMatch);
 }
 
 function startNextMatch() {
@@ -116,6 +123,9 @@ function startNextMatch() {
     const match = state.bracket[state.currentRound][state.currentMatch];
     state.ball1 = new Ball(match.p1);
     state.ball2 = new Ball(match.p2);
+
+    state.ball1.team = 1;
+    state.ball2.team = 2;
 
     const margin = 120;
     const halfW  = VIRTUAL_W / 2;
@@ -132,10 +142,14 @@ function startNextMatch() {
     state.ball2.vx    = (Math.random() - 0.5) * 12;
     state.ball2.vy    = (Math.random() - 0.5) * 12;
 
+    state.balls         = [state.ball1, state.ball2];
     state.projectiles   = [];
     state.particles     = [];
     state.floatingTexts = [];
     state.hazards       = [];
+    state.trails        = [];
+    state.boomerangs    = [];
+    state.portals       = [];
     state.confetti      = [];
     state.obstacles     = OBSTACLES;
     state.matchTime     = 0;
@@ -205,9 +219,12 @@ function endMatch(winnerDef, loserDef, duration) {
 
 let then;
 let winAnimTime = 0;
+// Tracks winning ball reference across ANIMATING_WIN state
+let winnerBall = null;
 
 function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
+    if (simPaused) return;
 
     const dt    = Math.min((timestamp - then) / 1000, 0.05);
     then        = timestamp;
@@ -236,11 +253,11 @@ function gameLoop(timestamp) {
 
         // Shrink arena during sudden death — zone expands over 60 simulated seconds
         if (state.suddenDeath) {
-            const shrinkProgress  = Math.min(1, (state.matchTime - 60) / 60);
-            state.shrinkInset     = shrinkProgress * 300;
-            const inset           = state.shrinkInset;
-            const dps             = 10 + shrinkProgress * 30;
-            for (const ball of [state.ball1, state.ball2]) {
+            const shrinkProgress = Math.min(1, (state.matchTime - 60) / 60);
+            state.shrinkInset    = shrinkProgress * 300;
+            const inset          = state.shrinkInset;
+            const dps            = 10 + shrinkProgress * 30;
+            for (const ball of state.balls) {
                 if (ball.x < inset || ball.x > VIRTUAL_W - inset ||
                     ball.y < inset || ball.y > VIRTUAL_H - inset) {
                     ball.hp -= dps * simDt;
@@ -250,20 +267,82 @@ function gameLoop(timestamp) {
 
         updateMatchTimer(state.matchTime, state.suddenDeath);
 
-        state.ball1.update(state.ball2, VIRTUAL_W, VIRTUAL_H, simDt);
-        state.ball2.update(state.ball1, VIRTUAL_W, VIRTUAL_H, simDt);
-        resolveCollision(state.ball1, state.ball2);
+        // Update all balls — each finds its nearest living opponent
+        for (const ball of state.balls.filter(b => b.hp > 0)) {
+            const opponents = state.balls.filter(b => b.team !== ball.team && b.hp > 0);
+            if (!opponents.length) continue;
+            const nearest = opponents.reduce((a, b) =>
+                Math.hypot(b.x - ball.x, b.y - ball.y) < Math.hypot(a.x - ball.x, a.y - ball.y) ? b : a
+            );
+            ball.update(nearest, VIRTUAL_W, VIRTUAL_H, simDt);
+        }
 
-        state.obstacles.forEach(obs => {
-            resolveObstacleCollision(state.ball1, obs);
-            resolveObstacleCollision(state.ball2, obs);
+        // Collisions between all opposing-team pairs
+        const aliveBalls = state.balls.filter(b => b.hp > 0);
+        for (let i = 0; i < aliveBalls.length; i++) {
+            for (let j = i + 1; j < aliveBalls.length; j++) {
+                if (aliveBalls[i].team !== aliveBalls[j].team) {
+                    resolveCollision(aliveBalls[i], aliveBalls[j]);
+                }
+            }
+        }
+
+        // Obstacle collisions for all balls
+        for (const ball of aliveBalls) {
+            state.obstacles.forEach(obs => resolveObstacleCollision(ball, obs));
+        }
+
+        // Trail acts as a solid wall + damage zone for all non-source balls
+        for (const seg of state.trails) {
+            for (const ball of aliveBalls) {
+                if (ball === seg.source) continue;  // Tron passes through own trail
+                resolveObstacleCollision(ball, seg);
+            }
+        }
+
+        // Trail segments damage opposing-team balls (DoT)
+        state.trails.forEach(t => {
+            const opponents = state.balls.filter(b => b.team !== t.source.team && b.hp > 0);
+            opponents.forEach(opp => t.update(opp, simDt));
         });
 
-        state.projectiles.forEach(p => p.update(simDt));
+        // Portal pairs — teleport any ball that enters either portal
+        state.portals.forEach(p => p.update(state.balls, simDt));
+
+        // Boomerang updates — retarget if current target is dead
+        state.boomerangs.forEach(blade => {
+            if (blade.target.hp <= 0) {
+                const alt = state.balls.find(b => b.team !== blade.source.team && b.hp > 0);
+                if (alt) blade.target = alt; else { blade._catch(); return; }
+            }
+            blade.update(simDt);
+        });
+
+        // Projectile retargeting and update
+        state.projectiles.forEach(p => {
+            if (p.target && p.target.hp <= 0) {
+                const alt = state.balls.find(b => b.team !== p.source.team && b.hp > 0);
+                if (alt) p.target = alt; else { p.active = false; return; }
+            }
+            p.update(simDt);
+        });
+
         state.particles.forEach(p => p.update(simDt));
         state.floatingTexts.forEach(ft => ft.update(simDt));
-        state.hazards.forEach(h => h.update(h.source === state.ball1 ? state.ball2 : state.ball1, simDt));
 
+        // Hazard update — each hazard finds opposing-team balls
+        state.hazards.forEach(h => {
+            const opponents = state.balls.filter(b => b.team !== h.source.team && b.hp > 0);
+            opponents.forEach(opp => h.update(opp, simDt));
+        });
+
+        // Remove minions whose host died
+        state.balls = state.balls.filter(b => !(b.isMinion && b.master && b.master.hp <= 0));
+
+        // Cleanup
+        state.trails        = state.trails.filter(t => t.active);
+        state.boomerangs    = state.boomerangs.filter(b => b.active);
+        state.portals       = state.portals.filter(p => p.active);
         state.projectiles   = state.projectiles.filter(p => p.active);
         state.particles     = state.particles.filter(p => p.life > 0);
         state.floatingTexts = state.floatingTexts.filter(ft => ft.life > 0);
@@ -278,45 +357,69 @@ function gameLoop(timestamp) {
         ctx.clip();
 
         drawObstacles(ctx, state.obstacles);
+        drawTrail(ctx, state.trails);
         state.hazards.forEach(h => drawHazard(ctx, h));
+        // Portals drawn beneath balls
+        state.portals.forEach(p => {
+            drawPortal(ctx, p.ax, p.ay, p.source.color, p.life / 7.0);
+            drawPortal(ctx, p.bx, p.by, p.source.color, p.life / 7.0);
+        });
 
+        // Grapple line — only for primary balls
         if (state.ball1.grappling > 0 && state.ball2.intangible <= 0) drawGrappleLine(ctx, state.ball1, state.ball2);
         if (state.ball2.grappling > 0 && state.ball1.intangible <= 0) drawGrappleLine(ctx, state.ball2, state.ball1);
 
         state.projectiles.forEach(p => drawProjectile(ctx, p));
+        state.boomerangs.forEach(b => drawBoomerang(ctx, b));
         state.particles.forEach(p => drawParticle(ctx, p));
-        drawBall(ctx, state.ball1);
-        drawBall(ctx, state.ball2);
+        state.balls.filter(b => b.hp > 0).forEach(b => drawBall(ctx, b));
         state.floatingTexts.forEach(ft => drawFloatingText(ctx, ft));
 
         drawArenaBorder(ctx, VIRTUAL_W, VIRTUAL_H);
         if (state.suddenDeath) drawSuddenDeathZone(ctx, VIRTUAL_W, VIRTUAL_H, state.shrinkInset);
         ctx.restore();
 
-        // Win condition
-        if (state.ball1.hp <= 0 || state.ball2.hp <= 0) {
+        // Win condition — check by team
+        // For fighters with clone ability (hasClone=true), both original AND clone must die
+        const team1Alive = state.balls.filter(b => b.team === 1 && b.hp > 0);
+        const team2Alive = state.balls.filter(b => b.team === 2 && b.hp > 0);
+
+        // Check if any ball on team has an active (alive) clone
+        const team1HasActiveClone = state.balls.some(b => b.team === 1 && b.hasClone && !b.isClone &&
+            state.balls.some(c => c.isClone && c.master === b && c.hp > 0));
+        const team2HasActiveClone = state.balls.some(b => b.team === 2 && b.hasClone && !b.isClone &&
+            state.balls.some(c => c.isClone && c.master === b && c.hp > 0));
+
+        // Team is truly dead only if no living balls AND no active clones
+        const team1Dead = team1Alive.length === 0 && !team1HasActiveClone;
+        const team2Dead = team2Alive.length === 0 && !team2HasActiveClone;
+
+        if (team1Dead || team2Dead) {
             let winner, loser;
 
-            if (state.ball1.hp > 0) {
+            if (!team1Dead) {
                 winner = state.ball1; loser = state.ball2;
-            } else if (state.ball2.hp > 0) {
+            } else if (!team2Dead) {
                 winner = state.ball2; loser = state.ball1;
             } else {
-                if (state.ball1.hp > state.ball2.hp)      { winner = state.ball1; loser = state.ball2; }
-                else if (state.ball2.hp > state.ball1.hp) { winner = state.ball2; loser = state.ball1; }
-                else {
-                    winner = Math.random() > 0.5 ? state.ball1 : state.ball2;
-                    loser  = winner === state.ball1 ? state.ball2 : state.ball1;
-                }
+                // Both teams wiped simultaneously — compare primary ball HP
+                if (state.ball1.hp >= state.ball2.hp) { winner = state.ball1; loser = state.ball2; }
+                else { winner = state.ball2; loser = state.ball1; }
                 winner.hp = 1;
             }
 
-            createParticles(loser.x, loser.y, loser.color, 80, 8, 5);
-            createParticles(loser.x, loser.y, '#ffffff', 20, 10, 2);
+            // Find an alive ball on the winning team for the victory animation
+            const winningTeamAlive = state.balls.filter(b => b.team === winner.team && b.hp > 0);
+            winnerBall = winningTeamAlive.length ? winningTeamAlive[0] : winner;
 
-            winner.flash = 0;
-            loser.flash  = 0;
-            winAnimTime  = 0;
+            const loserDisplay = state.balls.find(b => b.team === loser.team) || loser;
+            createParticles(loserDisplay.x, loserDisplay.y, loserDisplay.color, 80, 8, 5);
+            createParticles(loserDisplay.x, loserDisplay.y, '#ffffff', 20, 10, 2);
+
+            winner.flash    = 0;
+            loser.flash     = 0;
+            winnerBall.flash = 0;
+            winAnimTime     = 0;
             createConfetti(200, VIRTUAL_W);
             state.gameState = 'ANIMATING_WIN';
             const duration  = state.matchTime;
@@ -326,7 +429,7 @@ function gameLoop(timestamp) {
 
     } else if (state.gameState === 'ANIMATING_WIN') {
         winAnimTime += simDt;
-        const winner = state.ball1.hp > 0 ? state.ball1 : state.ball2;
+        const winner = winnerBall || (state.ball1.hp > 0 ? state.ball1 : state.ball2);
 
         winner.vx += (VIRTUAL_W / 2 - winner.x) * 0.001 * simDt * 60;
         winner.vy += (VIRTUAL_H / 2 - winner.y) * 0.001 * simDt * 60;
@@ -395,7 +498,37 @@ window.onload = () => {
         speedBtn.textContent = `${state.speedMultiplier}×`;
     });
 
+    document.getElementById('sim-btn').addEventListener('click', () => {
+        import('./sim.js').then(m => m.openSimPanel());
+    });
+
     initTournament();
     then = performance.now();
     requestAnimationFrame(gameLoop);
 };
+
+export function pauseForSim() {
+    simPaused = true;
+    if (state.autoStartTimer) { clearTimeout(state.autoStartTimer); state.autoStartTimer = null; }
+}
+
+export function resumeFromSim() {
+    state.balls = []; state.ball1 = null; state.ball2 = null;
+    state.projectiles = []; state.particles = []; state.floatingTexts = [];
+    state.hazards = []; state.trails = []; state.boomerangs = [];
+    state.portals = []; state.confetti = []; state.obstacles = [];
+    state.matchTime = 0; state.suddenDeath = false; state.shrinkInset = 0;
+    state.gameState = 'BRACKET';
+    simPaused = false;
+
+    const builderVisible = !document.getElementById('builder-overlay').classList.contains('hidden');
+    if (!builderVisible) {
+        if (state.tourneyWinner) {
+            showOverlay(`${state.tourneyWinner.name} Wins!`, 'The ultimate champion has been crowned.', 'Play Again', initTournament, state.tourneyWinner.color);
+        } else if (state.bracket[state.currentRound]?.[state.currentMatch]?.p1) {
+            const match = state.bracket[state.currentRound][state.currentMatch];
+            const rNames = ['Round of 16 Match', 'Quarterfinal', 'Semifinal', 'Final Match'];
+            showOverlay(`Next: ${rNames[state.currentRound]}`, `${match.p1.name} vs ${match.p2.name}`, 'Start Now', startNextMatch);
+        }
+    }
+}

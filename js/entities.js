@@ -22,8 +22,15 @@ export class Ball {
         this.vx = 0; this.vy = 0;
         this.angle = 0;
 
+        // Team assignment (1 or 2, set by game.js after construction)
+        this.team = 0;
+        this.isClone = false;
+        this.isMinion = false;
+        this.master = null;
+
         // All timers in seconds
-        this.abilityCooldown = 1.0;
+        // Portal gets a longer startup so Jimbo retreats before first use
+        this.abilityCooldown = def.ability === 'Portal' ? 3.5 : 1.0;
         this.hitCooldown     = 0;
         this.poisoned        = 0;
         this.shield          = 0;
@@ -42,10 +49,36 @@ export class Ball {
         this.stateTime         = 0;
 
         this.poisonTickTimer = 0;
+
+        // Immunity (CrazedAngelus)
+        this.immuneActive = false;
+
+        // SpeedRush (The Gravy Train)
+        this.rushStacks = 0;
+
+        // Trail (Tron)
+        this.trailTimer = 0;
+
+        // Boomerang (Ball Slayer)
+        this.blade = null;
+        this.momentumArmor = 0;
+        this.boomerangOut = false;
+
+        // Clone (Stick Man)
+        this.hasClone = false;
+
+        // Absorb (Dirty Dave)
+        this.hasAbsorbed = false;
     }
 
     takeDamage(amount, source, isReflect = false) {
         if (this.intangible > 0) return;
+        if (this.immuneActive) return;
+
+        // Momentum armor reduction (Ball Slayer)
+        if (this.momentumArmor > 0) {
+            amount = amount * (1 - this.momentumArmor);
+        }
 
         if (this.shield > 0) {
             this.shield -= amount;
@@ -58,15 +91,21 @@ export class Ball {
         }
 
         if (source && source.ability === 'Vampire' && !isReflect && this.hp > 0) {
-            const heal = amount * 0.5;
+            const heal = amount * 0.28;
             source.hp = Math.min(source.maxHp, source.hp + heal);
             emitter.emit('fx:text', { text: '+HP', x: source.x, y: source.y - source.r - 45, color: '#10b981' });
         }
 
         if (this.ability === 'Reflect' && source && !isReflect && this.hp > 0) {
-            const reflected = amount * 0.4;
+            const reflected = amount * 0.3;
             source.takeDamage(reflected, this, true);
             emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#14b8a6', count: 5, speed: 2 });
+        }
+
+        // SpeedRush: gain a stack each time hit
+        if (this.ability === 'SpeedRush') {
+            this.rushStacks++;
+            emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#ef4444', count: 4, speed: 3 });
         }
 
         this.flash = 0.083;
@@ -88,16 +127,32 @@ export class Ball {
         if (this.pulseVisual > 0) this.pulseVisual   -= dt;
         if (this.flash       > 0) this.flash         -= dt;
 
+        // Momentum armor decay
+        if (this.momentumArmor > 0) {
+            this.momentumArmor = Math.max(0, this.momentumArmor - dt * 0.12);
+        }
+
         if (this.poisoned > 0) {
             this.poisoned        -= dt;
             this.poisonTickTimer += dt;
             if (this.poisonTickTimer >= 0.25) {
                 this.poisonTickTimer -= 0.25;
-                this.takeDamage(1, null);
+                this.takeDamage(1.5, null);
                 emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#22c55e', count: 2, speed: 1 });
             }
         } else {
             this.poisonTickTimer = 0;
+        }
+
+        // Trail: spawn segment frequently to form a solid connected wall
+        if (this.ability === 'Trail') {
+            this.trailTimer -= dt;
+            if (this.trailTimer <= 0) {
+                this.trailTimer = 0.08;
+                if (state.trails.length < 200) {
+                    state.trails.push(new TrailSegment(this.x, this.y, this));
+                }
+            }
         }
 
         const dx   = enemy.x - this.x;
@@ -115,15 +170,15 @@ export class Ball {
 
         if (this.grappling > 0 && enemy.intangible <= 0) {
             this.grappling -= dt;
-            enemy.vx -= (dx / dist) * 1.2 * F;
-            enemy.vy -= (dy / dist) * 1.2 * F;
+            enemy.vx -= (dx / dist) * 1.5 * F;
+            enemy.vy -= (dy / dist) * 1.5 * F;
             emitter.emit('fx:particles', { x: this.x + dx / 2, y: this.y + dy / 2, color: '#8b5cf6', count: 1, speed: 0, size: 2 });
         }
 
         if (this.charging > 0) {
             this.charging -= dt;
-            this.vx += Math.cos(this.angle) * 0.6 * F;
-            this.vy += Math.sin(this.angle) * 0.6 * F;
+            this.vx += Math.cos(this.angle) * 0.9 * F;
+            this.vy += Math.sin(this.angle) * 0.9 * F;
             if (Math.random() < 0.33 * F) emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#fb923c', count: 2, speed: 1, size: 4 });
         }
 
@@ -171,6 +226,32 @@ export class Ball {
                     this.behaviorState = (dist > 300) ? 'AGGRESSIVE' : 'FLANKING';
                 } else if (this.ability === 'Heavy') {
                     this.behaviorState = dist > 250 ? 'AGGRESSIVE' : 'FLANKING';
+                } else if (this.ability === 'Boomerang') {
+                    // Strafe perpendicular after throw; retreat when blade is returning
+                    if (this.boomerangOut) {
+                        this.behaviorState = 'FLANKING';
+                    } else if (abilityReady) {
+                        this.behaviorState = dist < 400 ? 'AGGRESSIVE' : 'FLANKING';
+                    } else {
+                        this.behaviorState = 'RETREATING';
+                    }
+                } else if (this.ability === 'SpeedRush') {
+                    // Charge in — wants to get hit to build stacks
+                    this.behaviorState = 'AGGRESSIVE';
+                } else if (this.ability === 'Immunity') {
+                    this.behaviorState = (this.immuneActive || abilityReady) ? 'AGGRESSIVE' : 'FLANKING';
+                } else if (this.ability === 'Trail') {
+                    this.behaviorState = dist > (this.r + enemy.r + 150) ? 'AGGRESSIVE' : 'RETREATING';
+                } else if (this.ability === 'Portal') {
+                    // Retreat while no portals are up; once portals are placed charge through them
+                    const hasPortal = state.portals.some(p => p.source === this && p.active);
+                    this.behaviorState = hasPortal ? 'AGGRESSIVE' : 'RETREATING';
+                } else if (this.ability === 'Clone' || this.ability === 'Summon') {
+                    this.behaviorState = abilityReady ? 'FLANKING' : 'AGGRESSIVE';
+                } else if (this.ability === 'Absorb') {
+                    this.behaviorState = dist < 175 ? 'AGGRESSIVE' : 'FLANKING';
+                } else if (this.ability === 'BlackPanther') {
+                    this.behaviorState = hpRatio > 0.6 && Math.random() > 0.4 ? 'AGGRESSIVE' : 'FLANKING';
                 } else {
                     if (hpRatio < 0.25 && enemyHpRatio > 0.5) this.behaviorState = 'RETREATING';
                     else if (this.hp > enemy.hp) this.behaviorState = 'AGGRESSIVE';
@@ -222,9 +303,6 @@ export class Ball {
                     targetAngle = Math.atan2(height / 2 - this.y, width / 2 - this.x);
                 }
                 // Steer around obstacles that block the retreat path.
-                // Cast a ray from current position in targetAngle direction; if it passes
-                // within (ball.r + obs.r + buffer) of a pillar, deflect tangentially on
-                // whichever side opens more space away from the enemy.
                 const lookahead = 150;
                 const clearance = this.r + 48;
                 for (const obs of state.obstacles) {
@@ -232,10 +310,9 @@ export class Ball {
                     if (Math.hypot(odx, ody) > lookahead + obs.r) continue;
                     const rx = Math.cos(targetAngle), ry = Math.sin(targetAngle);
                     const proj = odx * rx + ody * ry;
-                    if (proj < 0) continue; // obstacle is behind us
+                    if (proj < 0) continue;
                     const perpDist = Math.abs(odx * ry - ody * rx);
                     if (perpDist < clearance + obs.r) {
-                        // cross > 0 → enemy is to the right of the retreat ray → steer left
                         const cross = dx * ry - dy * rx;
                         targetAngle += (cross >= 0 ? -1 : 1) * (Math.PI / 2.5);
                         break;
@@ -244,7 +321,8 @@ export class Ball {
             }
 
             let activeSpeed = this.speed;
-            if (this.ability === 'Berserk') activeSpeed *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.3;
+            if (this.ability === 'Berserk') activeSpeed *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.2;
+            if (this.ability === 'SpeedRush') activeSpeed += Math.min(this.rushStacks * 0.25, 3.0);
 
             const angleDiff = normalizeAngle(targetAngle - this.angle);
             let turnSpeed = 0.05 * (activeSpeed / 4) * F;
@@ -268,19 +346,19 @@ export class Ball {
 
         if (this.abilityCooldown <= 0 && state.gameState === 'FIGHTING') {
             if (this.ability === 'Dash' && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.3) {
-                this.vx += Math.cos(this.angle) * 16;
-                this.vy += Math.sin(this.angle) * 16;
-                this.abilityCooldown = 2.0;
+                this.vx += Math.cos(this.angle) * 18;
+                this.vy += Math.sin(this.angle) * 18;
+                this.abilityCooldown = 1.7;
                 emitter.emit('ability:used', { ball: this, ability: 'Dash', x: this.x, y: this.y });
 
-            } else if (this.ability === 'Charge' && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.2) {
-                this.charging        = 0.75;
-                this.abilityCooldown = 3.0;
+            } else if (this.ability === 'Charge' && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.3) {
+                this.charging        = 1.0;
+                this.abilityCooldown = 2.5;
                 emitter.emit('ability:used', { ball: this, ability: 'Charge', x: this.x, y: this.y });
 
             } else if (this.ability === 'Grapple' && dist < 350) {
-                this.grappling       = 0.75;
-                this.abilityCooldown = 2.67;
+                this.grappling       = 1.0;
+                this.abilityCooldown = 2.3;
                 emitter.emit('ability:used', { ball: this, ability: 'Grapple', x: this.x, y: this.y });
 
             } else if (this.ability === 'Phase') {
@@ -289,17 +367,17 @@ export class Ball {
                 const isMeleeThreat = dist < (this.r + enemy.r + 120) && enemyAimDiff < 0.8 && enemy.intangible <= 0;
                 const isProjThreat  = state.projectiles.some(p => p.target === this && Math.hypot(p.x - this.x, p.y - this.y) < (this.r + 100));
                 if (isMeleeThreat || isProjThreat) {
-                    this.intangible      = 1.5;
-                    this.abilityCooldown = 3.67;
+                    this.intangible      = 1.7;
+                    this.abilityCooldown = 3.0;
                     emitter.emit('ability:used', { ball: this, ability: 'Phase', x: this.x, y: this.y });
                 }
 
             } else if (this.ability === 'Pulse' && dist < (this.r + enemy.r + 120) && enemy.intangible <= 0) {
-                this.abilityCooldown = 2.5;
+                this.abilityCooldown = 3.0;
                 this.pulseVisual     = 0.25;
-                enemy.takeDamage(15, this);
-                enemy.vx += (dx / dist) * 18;
-                enemy.vy += (dy / dist) * 18;
+                enemy.takeDamage(12, this);
+                enemy.vx += (dx / dist) * 14;
+                enemy.vy += (dy / dist) * 14;
                 emitter.emit('ability:used', { ball: this, ability: 'Pulse', x: this.x, y: this.y });
 
             } else if (this.ability === 'Teleport' && dist < 350) {
@@ -314,15 +392,15 @@ export class Ball {
                 emitter.emit('ability:used', { ball: this, ability: 'Teleport', x: this.x, y: this.y });
 
             } else if (this.ability === 'Shield') {
-                this.shield          = 50;
-                this.abilityCooldown = 7.0;
+                this.shield          = 35;
+                this.abilityCooldown = 8.5;
                 emitter.emit('ability:used', { ball: this, ability: 'Shield', x: this.x, y: this.y });
 
             } else if (this.ability === 'Missile') {
                 const px = this.x + Math.cos(this.angle) * (this.r + 10);
                 const py = this.y + Math.sin(this.angle) * (this.r + 10);
-                state.projectiles.push(new Projectile(px, py, enemy, this, this.angle, true, 7, 10));
-                this.abilityCooldown = 1.5;
+                state.projectiles.push(new Projectile(px, py, enemy, this, this.angle, true, 8, 10));
+                this.abilityCooldown = 1.2;
 
             } else if (this.ability === 'Laser' && Math.abs(normalizeAngle(this.angle - laserLeadAngle)) < 0.15) {
                 const px = this.x + Math.cos(this.angle) * (this.r + 10);
@@ -347,6 +425,127 @@ export class Ball {
             } else if (this.ability === 'Trap') {
                 state.hazards.push(new Hazard(this.x, this.y, this));
                 this.abilityCooldown = 1.67;
+
+            } else if (this.ability === 'Immunity') {
+                this.immuneActive = true;
+                this.abilityCooldown = 5.0;
+                const self = this;
+                setTimeout(() => { self.immuneActive = false; }, 1500);
+                emitter.emit('fx:text', { text: 'IMMUNE!', x: this.x, y: this.y - this.r - 45, color: '#fbbf24' });
+                emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#fbbf24', count: 20, speed: 3 });
+
+            } else if (this.ability === 'Absorb' && !this.hasAbsorbed && dist < 175 && enemy.ability && enemy.ability !== 'Absorb') {
+                const stolen = enemy.def ? enemy.def.ability : enemy.ability;
+                // Steal the original ability so we don't inherit an already-stolen one
+                const toSteal = stolen || enemy.ability;
+                this.ability = toSteal;
+                this.def.ability = toSteal;
+                this.hasAbsorbed = true;
+                this.abilityCooldown = 1.0;
+                emitter.emit('fx:text', { text: 'ABSORBED!', x: this.x, y: this.y - this.r - 45, color: this.color });
+                emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.color, count: 20, speed: 4 });
+
+            } else if (this.ability === 'Trail') {
+                // Trail is always-on; abilityCooldown stays blocked to prevent repeated check
+                this.abilityCooldown = 9999;
+
+            } else if (this.ability === 'Boomerang' && !this.blade) {
+                const angle = Math.atan2(dy, dx);
+                const blade = new BoomerangBlade(
+                    this.x + Math.cos(angle) * (this.r + 12),
+                    this.y + Math.sin(angle) * (this.r + 12),
+                    angle, this, enemy
+                );
+                this.blade = blade;
+                state.boomerangs.push(blade);
+                this.momentumArmor = 0.3;
+                this.boomerangOut = true;
+                // cooldown is set when blade returns
+
+            } else if (this.ability === 'SpeedRush') {
+                // Passive — no active trigger; keep cooldown reset so we don't spam
+                this.abilityCooldown = 9999;
+
+            } else if (this.ability === 'Portal'
+                       && dist > 250
+                       && !state.portals.some(p => p.source === this && p.active)) {
+                // Portal A: at Jimbo's own position — he steps through it immediately
+                const ax = this.x;
+                const ay = this.y;
+                // Portal B: behind the enemy — same direction as Jimbo→enemy, past the enemy
+                const toEnemy = Math.atan2(dy, dx);
+                const bx = Math.max(60, Math.min(width - 60,
+                    enemy.x + Math.cos(toEnemy) * (enemy.r + 55)));
+                const by = Math.max(60, Math.min(height - 60,
+                    enemy.y + Math.sin(toEnemy) * (enemy.r + 55)));
+
+                state.portals.push(new PortalPair(ax, ay, bx, by, this));
+
+                this.abilityCooldown = 5.5;
+                emitter.emit('fx:particles', { x: ax, y: ay, color: this.color, count: 20, speed: 3 });
+                emitter.emit('fx:particles', { x: bx, y: by, color: this.color, count: 20, speed: 3 });
+
+            } else if (this.ability === 'Clone' && !this.hasClone) {
+                const cloneDef = {
+                    ...this.def,
+                    hp:     Math.floor(this.maxHp),
+                    maxHp:  Math.floor(this.maxHp),
+                    damage: Math.floor(this.baseDamage),
+                    name:   this.name + ' (Clone)',
+                    ability: 'Berserk',  // clones never re-clone
+                };
+                const clone = new Ball(cloneDef);
+                // Spawn on the opposite flank
+                const spawnAngle = Math.atan2(dy, dx) + Math.PI / 2;
+                clone.x = Math.max(clone.r, Math.min(width - clone.r,
+                    this.x + Math.cos(spawnAngle) * (this.r * 2 + 40)));
+                clone.y = Math.max(clone.r, Math.min(height - clone.r,
+                    this.y + Math.sin(spawnAngle) * (this.r * 2 + 40)));
+                clone.team = this.team;
+                clone.isClone = true;
+                clone.master = this;
+                clone.behaviorState = 'FLANKING';
+                clone.flankDir = -this.flankDir;
+                state.balls.push(clone);
+                this.hasClone = true;
+                this.abilityCooldown = 9999;
+                emitter.emit('fx:text', { text: 'CLONE!', x: this.x, y: this.y - this.r - 45, color: this.color });
+                emitter.emit('fx:particles', { x: clone.x, y: clone.y, color: this.color, count: 20, speed: 3 });
+
+            } else if (this.ability === 'Summon') {
+                const minionCount = state.balls.filter(b => b.isMinion && b.master === this && b.hp > 0).length;
+                if (minionCount < 3) {
+                    const mDef = {
+                        ...this.def,
+                        hp:      Math.max(1, Math.floor(this.maxHp * 0.18)),
+                        maxHp:   Math.max(1, Math.floor(this.maxHp * 0.18)),
+                        damage:  Math.max(1, Math.floor(this.baseDamage * 0.18)),
+                        r: 28, mass: 0.4, speed: 4.5, name: 'Minion',
+                        ability: 'Berserk',  // minions never summon more minions
+                    };
+                    const minion = new Ball(mDef);
+                    const spawnAngle = Math.random() * Math.PI * 2;
+                    minion.x = Math.max(minion.r, Math.min(width - minion.r,
+                        this.x + Math.cos(spawnAngle) * (this.r + 50)));
+                    minion.y = Math.max(minion.r, Math.min(height - minion.r,
+                        this.y + Math.sin(spawnAngle) * (this.r + 50)));
+                    minion.team = this.team;
+                    minion.isMinion = true;
+                    minion.master = this;
+                    minion.behaviorState = 'AGGRESSIVE';
+                    state.balls.push(minion);
+                    emitter.emit('fx:particles', { x: minion.x, y: minion.y, color: this.color, count: 12, speed: 2 });
+                }
+                this.abilityCooldown = 8.0;
+
+            } else if (this.ability === 'BlackPanther') {
+                // Speed burst when flanking close to enemy
+                if (dist < this.r + enemy.r + 80) {
+                    this.vx += Math.cos(this.angle + Math.PI / 2 * this.flankDir) * 12;
+                    this.vy += Math.sin(this.angle + Math.PI / 2 * this.flankDir) * 12;
+                    this.abilityCooldown = 1.4;
+                    emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#6b21a8', count: 8, speed: 4 });
+                }
             }
         }
 
@@ -382,6 +581,180 @@ export class Hazard {
     }
 }
 
+export class TrailSegment {
+    constructor(x, y, source) {
+        this.x = x; this.y = y; this.source = source;
+        this.r = 16;
+        this.active = true;
+        this.life = 6.0;
+        this.maxLife = 6.0;
+        this.tickTimer = 0;
+        this.damage = 8;
+    }
+    update(enemy, dt) {
+        this.life -= dt;
+        if (this.life <= 0) { this.active = false; return; }
+        if (enemy.intangible > 0 || enemy.immuneActive) return;
+        const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
+        if (dist < enemy.r + this.r) {
+            this.tickTimer += dt;
+            if (this.tickTimer >= 0.25) {
+                this.tickTimer -= 0.25;
+                enemy.takeDamage(this.damage, this.source);
+            }
+        } else {
+            this.tickTimer = 0;
+        }
+    }
+}
+
+export class PortalPair {
+    constructor(ax, ay, bx, by, source) {
+        this.ax = ax; this.ay = ay;  // portal A position
+        this.bx = bx; this.by = by;  // portal B position
+        this.r = 45;                  // entrance radius
+        this.source = source;
+        this.active = true;
+        this.life = 8.0;
+        this.recentlyTeleported = new Map(); // ball -> remaining cooldown (s)
+    }
+
+    update(balls, dt) {
+        this.life -= dt;
+        if (this.life <= 0) { this.active = false; return; }
+
+        // Decrement per-ball re-entry cooldowns
+        for (const [ball, cd] of this.recentlyTeleported) {
+            const next = cd - dt;
+            if (next <= 0) this.recentlyTeleported.delete(ball);
+            else this.recentlyTeleported.set(ball, next);
+        }
+
+        for (const ball of balls) {
+            if (ball.hp <= 0) continue;
+            if (this.recentlyTeleported.has(ball)) continue;
+
+            const distA = Math.hypot(ball.x - this.ax, ball.y - this.ay);
+            const distB = Math.hypot(ball.x - this.bx, ball.y - this.by);
+
+            if (distA < this.r + ball.r * 0.5) {
+                // Enter A → exit B
+                ball.x = this.bx;
+                ball.y = this.by;
+                // Preserve velocity direction, give a small forward nudge
+                const speed = Math.hypot(ball.vx, ball.vy);
+                if (speed > 0.1) {
+                    ball.vx = (ball.vx / speed) * Math.max(speed, 4);
+                    ball.vy = (ball.vy / speed) * Math.max(speed, 4);
+                }
+                this.recentlyTeleported.set(ball, 0.75);
+                emitter.emit('fx:particles', { x: this.bx, y: this.by, color: this.source.color, count: 20, speed: 4 });
+                emitter.emit('fx:particles', { x: this.ax, y: this.ay, color: this.source.color, count: 8, speed: 2 });
+            } else if (distB < this.r + ball.r * 0.5) {
+                // Enter B → exit A
+                ball.x = this.ax;
+                ball.y = this.ay;
+                const speed = Math.hypot(ball.vx, ball.vy);
+                if (speed > 0.1) {
+                    ball.vx = (ball.vx / speed) * Math.max(speed, 4);
+                    ball.vy = (ball.vy / speed) * Math.max(speed, 4);
+                }
+                this.recentlyTeleported.set(ball, 0.75);
+                emitter.emit('fx:particles', { x: this.ax, y: this.ay, color: this.source.color, count: 20, speed: 4 });
+                emitter.emit('fx:particles', { x: this.bx, y: this.by, color: this.source.color, count: 8, speed: 2 });
+            }
+        }
+    }
+}
+
+export class BoomerangBlade {
+    constructor(x, y, angle, source, target) {
+        this.x = x; this.y = y;
+        this.source = source;
+        this.target = target;
+        this.speed = 11;
+        this.r = 22;
+        this.damage = source.baseDamage * 1.35;
+        this.color = source.color;
+        this.active = true;
+        this.phase = 'OUTGOING';
+        this.vx = Math.cos(angle) * this.speed;
+        this.vy = Math.sin(angle) * this.speed;
+        this.life = 4.0;
+        // Per-pass hit cooldown — allows one hit outgoing and one hit returning
+        // without the blade deactivating between passes
+        this.hitCooldown = 0;
+        this.maxDistFromSource = 0;
+    }
+    update(dt) {
+        this.life -= dt;
+        if (this.life <= 0) { this._catch(); return; }
+
+        if (this.hitCooldown > 0) this.hitCooldown -= dt;
+
+        const distFromSource = Math.hypot(this.x - this.source.x, this.y - this.source.y);
+
+        if (this.phase === 'OUTGOING') {
+            // Perpendicular curve for boomerang arc feel
+            const perpX = -this.vy / this.speed;
+            const perpY =  this.vx / this.speed;
+            this.vx += perpX * 0.3 * dt * 60;
+            this.vy += perpY * 0.3 * dt * 60;
+            const v = Math.hypot(this.vx, this.vy);
+            if (v > this.speed) { this.vx = (this.vx / v) * this.speed; this.vy = (this.vy / v) * this.speed; }
+
+            // Track furthest point; switch to returning once blade starts coming back
+            // or reaches max range (~380px)
+            this.maxDistFromSource = Math.max(this.maxDistFromSource, distFromSource);
+            if (distFromSource > 380 || (this.maxDistFromSource > 80 && distFromSource < this.maxDistFromSource * 0.75)) {
+                this.phase = 'RETURNING';
+            }
+
+            // Outgoing hit — one hit allowed per pass (cooldown resets between passes)
+            if (this.hitCooldown <= 0 && this.target.hp > 0) {
+                const d = Math.hypot(this.target.x - this.x, this.target.y - this.y);
+                if (d < this.target.r + this.r && this.target.intangible <= 0 && !this.target.immuneActive) {
+                    this.target.takeDamage(this.damage, this.source);
+                    this.hitCooldown = 0.5;
+                    emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.color, count: 14, speed: 4 });
+                }
+            }
+        } else {
+            // Home back to source
+            const dx = this.source.x - this.x;
+            const dy = this.source.y - this.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < this.source.r + this.r) { this._catch(); return; }
+            this.vx += (dx / dist) * 2.2 * dt * 60;
+            this.vy += (dy / dist) * 2.2 * dt * 60;
+            const v = Math.hypot(this.vx, this.vy);
+            if (v > this.speed * 1.4) { this.vx = (this.vx / v) * this.speed * 1.4; this.vy = (this.vy / v) * this.speed * 1.4; }
+
+            // Return hit — full damage, independent of outgoing hit
+            if (this.hitCooldown <= 0 && this.target.hp > 0) {
+                const d = Math.hypot(this.target.x - this.x, this.target.y - this.y);
+                if (d < this.target.r + this.r && this.target.intangible <= 0 && !this.target.immuneActive) {
+                    this.target.takeDamage(this.damage, this.source);
+                    this.hitCooldown = 0.5;
+                    emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.color, count: 14, speed: 4 });
+                    this._catch();
+                    return;
+                }
+            }
+        }
+
+        this.x += this.vx * dt * 60;
+        this.y += this.vy * dt * 60;
+    }
+    _catch() {
+        this.active = false;
+        this.source.blade = null;
+        this.source.boomerangOut = false;
+        this.source.momentumArmor = 0;
+        this.source.abilityCooldown = 2.8;
+    }
+}
+
 export class Projectile {
     constructor(x, y, target, source, startAngle, homing = true, speed = 8, damage = 10) {
         this.x = x; this.y = y;
@@ -406,7 +779,7 @@ export class Projectile {
         const dy   = this.target.y - this.y;
         const dist = Math.hypot(dx, dy);
 
-        if (dist < this.target.r + this.r && this.target.intangible <= 0) {
+        if (dist < this.target.r + this.r && this.target.intangible <= 0 && !this.target.immuneActive) {
             this.target.takeDamage(this.damage, this.source);
             this.active = false;
             emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.color, count: 12, speed: 3 });

@@ -8,7 +8,24 @@ import { emitter } from './events.js';
 emitter.on('match:start', ({ ball1, ball2, round }) => {
     const rName = ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'][round];
     const mh    = document.getElementById('match-header');
-    mh.innerHTML = `<span class="text-slate-400 text-sm block -mt-1 mb-1">${rName}</span><span style="color:${ball1.color}">${ball1.name}</span> <span class="text-slate-500 mx-2 text-3xl">VS</span> <span style="color:${ball2.color}">${ball2.name}</span>`;
+
+    const p1Display = ball1.def.player || ball1.name;
+    const p2Display = ball2.def.player || ball2.name;
+    const showSub   = ball1.def.player || ball2.def.player;
+    const subHtml   = showSub
+        ? `<div class="text-center" style="font-size:clamp(9px,0.9vw,14px);color:#64748b;font-weight:500;margin-top:2px">
+               ${ball1.def.player ? ball1.name : ''}
+               ${ball1.def.player && ball2.def.player ? '<span style="margin:0 6px">vs</span>' : ''}
+               ${ball2.def.player ? ball2.name : ''}
+           </div>`
+        : '';
+
+    mh.innerHTML = `
+        <span class="text-slate-400 text-sm block -mt-1 mb-1">${rName}</span>
+        <span style="color:${ball1.color}">${p1Display}</span>
+        <span class="text-slate-500 mx-2 text-3xl">VS</span>
+        <span style="color:${ball2.color}">${p2Display}</span>
+        ${subHtml}`;
     mh.classList.remove('hidden');
     document.getElementById('match-timer').classList.remove('hidden');
     document.getElementById('speed-btn').classList.remove('hidden');
@@ -80,12 +97,12 @@ export function renderBracket() {
             html += `<div class="bg-slate-800 rounded-lg p-1.5 border-2 ${borderClass} flex flex-col gap-0.5 shadow-md z-10 my-0.5">`;
 
             const p1C = match.p1 ? match.p1.color : '#475569';
-            const p1N = match.p1 ? match.p1.name : 'TBD';
+            const p1N = match.p1 ? (match.p1.player || match.p1.name) : 'TBD';
             const p1W = match.winner === match.p1 ? 'font-black text-white' : (match.winner ? 'text-slate-600 line-through' : 'text-slate-300 font-semibold');
             html += `<div class="flex items-center gap-1 text-xs ${p1W}"><div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${p1C}"></div><span class="truncate">${p1N}</span></div>`;
 
             const p2C = match.p2 ? match.p2.color : '#475569';
-            const p2N = match.p2 ? match.p2.name : 'TBD';
+            const p2N = match.p2 ? (match.p2.player || match.p2.name) : 'TBD';
             const p2W = match.winner === match.p2 ? 'font-black text-white' : (match.winner ? 'text-slate-600 line-through' : 'text-slate-300 font-semibold');
             html += `<div class="flex items-center gap-1 text-xs ${p2W}"><div class="w-2 h-2 rounded-full flex-shrink-0" style="background:${p2C}"></div><span class="truncate">${p2N}</span></div>`;
 
@@ -96,7 +113,7 @@ export function renderBracket() {
 
     // Champion column — scales with panel via clamp
     const champC = state.tourneyWinner ? state.tourneyWinner.color : '#475569';
-    const champN = state.tourneyWinner ? state.tourneyWinner.name : '???';
+    const champN = state.tourneyWinner ? (state.tourneyWinner.player || state.tourneyWinner.name) : '???';
     const champClass = state.tourneyWinner
         ? 'border-yellow-400 glow ring-2 ring-yellow-400 font-black text-white'
         : 'border-slate-700 text-slate-500';
@@ -131,6 +148,9 @@ export function renderRoster() {
         const badgeSize   = 'clamp(9px,  0.8vw, 14px)';
         const descSize    = 'clamp(10px, 1.05vw, 19px)';
         const statsSize   = 'clamp(9px,  0.9vw, 17px)';
+        const playerLine  = b.player
+            ? `<div class="text-slate-500 font-medium" style="font-size:${badgeSize}">${b.player}</div>`
+            : '';
 
         html += `<div class="flex items-start gap-3 bg-slate-800/80 p-3 rounded-lg border border-slate-700 shadow-md">
                     <div class="rounded-full flex-shrink-0 shadow-inner border-2 border-slate-900"
@@ -140,6 +160,7 @@ export function renderRoster() {
                             ${b.name}
                             <span class="uppercase font-bold text-indigo-400 bg-indigo-900/50 rounded ml-2 px-1.5 py-0.5 align-middle" style="font-size:${badgeSize}">${b.ability}</span>
                         </div>
+                        ${playerLine}
                         <div class="text-slate-400 mt-1 leading-snug" style="font-size:${descSize}">${b.desc}</div>
                         <div class="text-slate-500 mt-2 flex gap-4 font-semibold" style="font-size:${statsSize}">
                             <span><span class="text-slate-400">HP:</span> ${b.hp}</span>
@@ -156,6 +177,86 @@ export function renderRoster() {
 
     html += '</div>';
     container.innerHTML = html;
+}
+
+// ─── Tournament Builder ───────────────────────────────────────────────────────
+
+export function showBuilder(allDefs, onStart) {
+    const overlay  = document.getElementById('builder-overlay');
+    const grid     = document.getElementById('builder-grid');
+    const counter  = document.getElementById('builder-counter');
+    const startBtn = document.getElementById('builder-start-btn');
+    const randomBtn = document.getElementById('builder-random-btn');
+
+    let selected = new Set();
+
+    function renderCards() {
+        grid.innerHTML = allDefs.map((def, i) => {
+            const isSel = selected.has(i);
+            const playerLine = def.player
+                ? `<div style="font-size:11px;color:#64748b;margin-bottom:2px">${def.player}</div>`
+                : '';
+            return `<div class="builder-card select-none cursor-pointer rounded-lg border-2 p-2 transition-all"
+                        style="background:${isSel ? '#1e1b4b' : '#1e293b'};border-color:${isSel ? '#818cf8' : '#334155'}"
+                        data-idx="${i}">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                    <div style="width:16px;height:16px;border-radius:50%;background:${def.color};flex-shrink:0;border:1px solid #0f172a"></div>
+                    <span style="font-weight:700;color:#f1f5f9;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${def.name}</span>
+                </div>
+                ${playerLine}
+                <div style="font-size:10px;color:#818cf8;font-weight:600;margin-bottom:3px">${def.ability}</div>
+                <div style="font-size:10px;color:#64748b;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${def.desc}</div>
+                <div style="font-size:10px;color:#475569;margin-top:4px;display:flex;gap:8px">
+                    <span>HP:${def.hp}</span><span>DMG:${def.damage}</span><span>SPD:${def.speed}</span>
+                </div>
+            </div>`;
+        }).join('');
+
+        grid.querySelectorAll('.builder-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const idx = Number(card.dataset.idx);
+                if (selected.has(idx)) {
+                    selected.delete(idx);
+                } else if (selected.size < 16) {
+                    selected.add(idx);
+                }
+                updateUI();
+            });
+        });
+    }
+
+    function updateUI() {
+        renderCards();
+        const n = selected.size;
+        counter.textContent = `${n} / 16 selected`;
+        counter.style.color = n === 16 ? '#4ade80' : '#94a3b8';
+        const ready = n === 16;
+        startBtn.disabled = !ready;
+        startBtn.style.opacity = ready ? '1' : '0.4';
+        startBtn.style.cursor = ready ? 'pointer' : 'not-allowed';
+    }
+
+    randomBtn.onclick = () => {
+        const shuffled = [...allDefs.keys()].sort(() => Math.random() - 0.5).slice(0, 16);
+        selected = new Set(shuffled);
+        updateUI();
+    };
+
+    startBtn.onclick = () => {
+        if (selected.size !== 16) return;
+        const pickedDefs = [...selected].map(i => allDefs[i]);
+        hideBuilder();
+        onStart(pickedDefs);
+    };
+
+    selected.clear();
+    updateUI();
+    overlay.classList.remove('hidden');
+}
+
+export function hideBuilder() {
+    const overlay = document.getElementById('builder-overlay');
+    if (overlay) overlay.classList.add('hidden');
 }
 
 // ─── Leaderboard ──────────────────────────────────────────────────────────────

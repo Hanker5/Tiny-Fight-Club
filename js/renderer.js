@@ -17,6 +17,19 @@ export function drawBall(ctx, ball) {
         ctx.stroke();
     }
 
+    // Immunity ring — gold pulsing ring
+    if (ball.immuneActive) {
+        const pulse = 0.7 + 0.3 * Math.sin(performance.now() / 80);
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.r + 8 + pulse * 4, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(251, 191, 36, ${pulse})`;
+        ctx.lineWidth = 4;
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    }
+
     if (ball.pulseVisual > 0) {
         ctx.beginPath();
         ctx.arc(0, 0, ball.r + (15 - ball.pulseVisual) * 4, 0, Math.PI * 2);
@@ -65,10 +78,18 @@ export function drawBall(ctx, ball) {
     ctx.lineWidth = 1;
     ctx.strokeRect(ball.x - barW / 2, ball.y - ball.r - 24, barW, 6);
 
+    // Fighter name
     ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 18px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(ball.name, ball.x, ball.y - ball.r - 35);
+
+    // Player name (above fighter name, smaller and muted)
+    if (ball.def && ball.def.player) {
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(ball.def.player, ball.x, ball.y - ball.r - 53);
+    }
 }
 
 export function drawHazard(ctx, hazard) {
@@ -91,6 +112,131 @@ export function drawHazard(ctx, hazard) {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
+}
+
+export function drawTrail(ctx, trails) {
+    if (!trails.length) return;
+
+    // Group segments by source so each Tron gets its own path
+    const groups = new Map();
+    for (const seg of trails) {
+        if (!groups.has(seg.source)) groups.set(seg.source, []);
+        groups.get(seg.source).push(seg);
+    }
+
+    for (const [, segs] of groups) {
+        if (!segs.length) continue;
+        ctx.save();
+
+        // Outer glow layer
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 18;
+        ctx.strokeStyle = '#0ea5e9';
+        ctx.lineWidth = segs[0].r * 2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalAlpha = 0.55;
+        ctx.beginPath();
+        ctx.moveTo(segs[0].x, segs[0].y);
+        for (let i = 1; i < segs.length; i++) ctx.lineTo(segs[i].x, segs[i].y);
+        ctx.stroke();
+
+        // Bright inner core
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#e0f2fe';
+        ctx.lineWidth = segs[0].r * 0.65;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(segs[0].x, segs[0].y);
+        for (let i = 1; i < segs.length; i++) ctx.lineTo(segs[i].x, segs[i].y);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+}
+
+export function drawPortal(ctx, x, y, color, lifeFrac = 1) {
+    const pulse = 0.65 + 0.35 * Math.sin(performance.now() / 160);
+    const alpha = Math.min(1, lifeFrac) * pulse;
+    ctx.save();
+
+    // Large translucent disc
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.18 * alpha;
+    ctx.beginPath();
+    ctx.arc(x, y, 45, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Outer glow ring
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 30;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 6;
+    ctx.globalAlpha = 0.9 * alpha;
+    ctx.beginPath();
+    ctx.arc(x, y, 38, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Inner bright ring
+    ctx.shadowBlur = 10;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.7 * alpha;
+    ctx.beginPath();
+    ctx.arc(x, y, 24, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Spinning spokes
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.5 * alpha;
+    const rot = (performance.now() / 600) % (Math.PI * 2);
+    for (let i = 0; i < 4; i++) {
+        const a = rot + i * Math.PI / 2;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a) * 10, y + Math.sin(a) * 10);
+        ctx.lineTo(x + Math.cos(a) * 30, y + Math.sin(a) * 30);
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+export function drawBoomerang(ctx, blade) {
+    const angle = Math.atan2(blade.vy, blade.vx);
+    const spin  = performance.now() / 60;
+    ctx.save();
+    ctx.translate(blade.x, blade.y);
+    ctx.rotate(angle + spin);
+
+    const r = blade.r;
+    const isReturn = blade.phase === 'RETURNING';
+
+    // Outer glow
+    ctx.shadowColor = isReturn ? '#f59e0b' : '#818cf8';
+    ctx.shadowBlur  = 14;
+
+    // Curved blade arms (two arcs forming a boomerang shape)
+    ctx.beginPath();
+    ctx.moveTo(-r, 0);
+    ctx.quadraticCurveTo(-r * 0.2, -r * 0.7, r, 0);
+    ctx.quadraticCurveTo(-r * 0.2,  r * 0.7, -r, 0);
+    ctx.closePath();
+    ctx.fillStyle = isReturn ? '#fbbf24' : '#a5b4fc';
+    ctx.fill();
+    ctx.strokeStyle = isReturn ? '#92400e' : '#312e81';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Bright center dot
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
     ctx.restore();
 }
 

@@ -59,6 +59,60 @@
             1×
         </button>
 
+        <!-- Balance Simulator Overlay -->
+        <div id="sim-overlay" class="absolute inset-0 z-50 hidden flex-col" style="background:rgba(2,6,23,0.97)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #1e293b;flex-shrink:0">
+                <h2 style="font-weight:900;color:#f1f5f9;font-size:clamp(14px,2vw,24px);text-transform:uppercase;letter-spacing:.1em;margin:0">Balance Sim</h2>
+                <div style="display:flex;gap:10px;align-items:center">
+                    <span id="sim-status" style="color:#94a3b8;font-size:clamp(10px,1vw,14px)"></span>
+                    <button id="sim-run-btn" style="background:#4f46e5;color:#fff;font-weight:700;border-radius:8px;padding:6px 18px;border:none;cursor:pointer;font-size:clamp(11px,1vw,15px)">Run</button>
+                    <button id="sim-close-btn" style="background:#334155;color:#f1f5f9;font-weight:700;border-radius:8px;padding:6px 14px;border:none;cursor:pointer;font-size:clamp(11px,1vw,15px)">Close</button>
+                </div>
+            </div>
+            <div style="display:flex;gap:16px;align-items:center;padding:10px 20px;border-bottom:1px solid #1e293b;flex-shrink:0;flex-wrap:wrap">
+                <label style="color:#94a3b8;font-size:clamp(10px,1vw,14px)">
+                    Matches per pair:
+                    <input id="sim-matches-input" type="number" min="1" max="500" value="20"
+                           style="width:64px;background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:6px;padding:3px 8px;margin-left:6px;font-size:inherit">
+                </label>
+                <div id="sim-progress-bar-wrap" style="flex:1;min-width:120px;height:6px;background:#1e293b;border-radius:3px;overflow:hidden">
+                    <div id="sim-progress-bar" style="height:100%;width:0%;background:#4f46e5;transition:width 0.1s linear"></div>
+                </div>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:12px 20px">
+                <div id="sim-results-table"></div>
+                <details id="sim-h2h-details" style="margin-top:16px">
+                    <summary style="color:#64748b;cursor:pointer;font-size:clamp(10px,1vw,14px);user-select:none">Head-to-head matrix</summary>
+                    <div id="sim-h2h-table" style="overflow-x:auto;margin-top:8px"></div>
+                </details>
+            </div>
+        </div>
+
+        <!-- Tournament Builder Overlay -->
+        <div id="builder-overlay" class="absolute inset-0 flex flex-col z-40 hidden" style="background:rgba(2,6,23,0.97)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #1e293b;flex-shrink:0">
+                <h2 style="font-weight:900;color:#f1f5f9;font-size:clamp(14px,2.2vw,28px);text-transform:uppercase;letter-spacing:0.12em;margin:0">Select Your Fighters</h2>
+                <div id="builder-counter" style="color:#94a3b8;font-weight:700;font-size:clamp(12px,1.4vw,20px)">0 / 16 selected</div>
+            </div>
+            <div id="builder-grid" style="flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;align-content:start"></div>
+            <div style="display:flex;gap:12px;padding:14px 24px;border-top:1px solid #1e293b;flex-shrink:0;justify-content:center">
+                <button id="sim-btn"
+                        style="background:#1e293b;color:#94a3b8;font-weight:700;border-radius:8px;padding:8px 20px;border:1px solid #334155;cursor:pointer;font-size:clamp(11px,1.1vw,16px);transition:background 0.15s"
+                        onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">
+                    Balance Sim
+                </button>
+                <button id="builder-random-btn"
+                        style="background:#334155;color:#f1f5f9;font-weight:700;border-radius:8px;padding:8px 20px;border:none;cursor:pointer;font-size:clamp(11px,1.1vw,16px);transition:background 0.15s"
+                        onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#334155'">
+                    Random 16
+                </button>
+                <button id="builder-start-btn" disabled
+                        style="background:#4f46e5;color:#fff;font-weight:700;border-radius:8px;padding:8px 28px;border:none;cursor:not-allowed;font-size:clamp(11px,1.1vw,16px);opacity:0.4;transition:all 0.15s">
+                    Start Tournament
+                </button>
+            </div>
+        </div>
+
         <!-- UI Overlay (Menu, Next Match, Game Over) -->
         <div id="overlay" class="absolute inset-0 bg-slate-900/80 flex flex-col items-center justify-center z-30 backdrop-blur-sm transition-opacity duration-300">
             <h2 id="overlay-title" class="font-black text-white mb-2 drop-shadow-lg text-center uppercase tracking-widest"
