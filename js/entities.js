@@ -69,6 +69,8 @@ export class Ball {
 
         // Absorb (Dirty Dave)
         this.hasAbsorbed = false;
+        this.stolenAbilities = def.stolenAbilities ? [...def.stolenAbilities] : [];
+        this.stolenCooldowns = this.stolenAbilities.map(() => 0);
     }
 
     takeDamage(amount, source, isReflect = false) {
@@ -103,7 +105,7 @@ export class Ball {
         }
 
         // SpeedRush: gain a stack each time hit
-        if (this.ability === 'SpeedRush') {
+        if (this.ability === 'SpeedRush' || this.stolenAbilities.includes('SpeedRush')) {
             this.rushStacks++;
             emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#ef4444', count: 4, speed: 3 });
         }
@@ -121,6 +123,9 @@ export class Ball {
             } else {
                 this.abilityCooldown -= dt;
             }
+        }
+        for (let _i = 0; _i < this.stolenCooldowns.length; _i++) {
+            if (this.stolenCooldowns[_i] > 0) this.stolenCooldowns[_i] -= dt;
         }
         if (this.hitCooldown > 0) this.hitCooldown  -= dt;
         if (this.intangible  > 0) this.intangible   -= dt;
@@ -145,7 +150,7 @@ export class Ball {
         }
 
         // Trail: spawn segment frequently to form a solid connected wall
-        if (this.ability === 'Trail') {
+        if (this.ability === 'Trail' || this.stolenAbilities.includes('Trail')) {
             this.trailTimer -= dt;
             if (this.trailTimer <= 0) {
                 this.trailTimer = 0.08;
@@ -249,7 +254,10 @@ export class Ball {
                 } else if (this.ability === 'Clone' || this.ability === 'Summon') {
                     this.behaviorState = abilityReady ? 'FLANKING' : 'AGGRESSIVE';
                 } else if (this.ability === 'Absorb') {
-                    this.behaviorState = dist < 175 ? 'AGGRESSIVE' : 'FLANKING';
+                    const wantsAbsorb = !this.hasAbsorbed && this.stolenAbilities.length < 3;
+                    this.behaviorState = (wantsAbsorb && dist < 175) ? 'AGGRESSIVE'
+                                       : wantsAbsorb ? 'FLANKING'
+                                       : 'AGGRESSIVE';
                 } else if (this.ability === 'BlackPanther') {
                     this.behaviorState = hpRatio > 0.6 && Math.random() > 0.4 ? 'AGGRESSIVE' : 'FLANKING';
                 } else {
@@ -322,7 +330,7 @@ export class Ball {
 
             let activeSpeed = this.speed;
             if (this.ability === 'Berserk') activeSpeed *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.2;
-            if (this.ability === 'SpeedRush') activeSpeed += Math.min(this.rushStacks * 0.4, 3.0);
+            if (this.ability === 'SpeedRush' || this.stolenAbilities.includes('SpeedRush')) activeSpeed += Math.min(this.rushStacks * 0.4, 3.0);
 
             const angleDiff = normalizeAngle(targetAngle - this.angle);
             let turnSpeed = 0.05 * (activeSpeed / 4) * F;
@@ -434,14 +442,18 @@ export class Ball {
                 emitter.emit('fx:text', { text: 'IMMUNE!', x: this.x, y: this.y - this.r - 45, color: '#fbbf24' });
                 emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#fbbf24', count: 20, speed: 3 });
 
-            } else if (this.ability === 'Absorb' && !this.hasAbsorbed && dist < 175 && enemy.ability && enemy.ability !== 'Absorb') {
-                const stolen = enemy.def ? enemy.def.ability : enemy.ability;
-                // Steal the original ability so we don't inherit an already-stolen one
-                const toSteal = stolen || enemy.ability;
-                this.ability = toSteal;
-                this.def.ability = toSteal;
+            } else if (this.ability === 'Absorb' && !this.hasAbsorbed && dist < 175
+                    && enemy.ability && this.stolenAbilities.length < 3) {
+                const UNSTEALABLE = new Set(['Absorb']);
+                const raw = enemy.def ? enemy.def.ability : enemy.ability;
+                const toSteal = (raw && !UNSTEALABLE.has(raw)) ? raw : null;
+                if (toSteal && !this.stolenAbilities.includes(toSteal)) {
+                    this.stolenAbilities.push(toSteal);
+                    this.stolenCooldowns.push(1.0);
+                    this.def.stolenAbilities = [...this.stolenAbilities];
+                }
                 this.hasAbsorbed = true;
-                this.abilityCooldown = 1.0;
+                this.abilityCooldown = 3.0;
                 emitter.emit('fx:text', { text: 'ABSORBED!', x: this.x, y: this.y - this.r - 45, color: this.color });
                 emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.color, count: 20, speed: 4 });
 
@@ -545,6 +557,159 @@ export class Ball {
                     this.vy += Math.sin(this.angle + Math.PI / 2 * this.flankDir) * 12;
                     this.abilityCooldown = 1.4;
                     emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#6b21a8', count: 8, speed: 4 });
+                }
+            }
+        }
+
+        // Dirty Dave: fire each stolen ability on its own independent cooldown
+        if (this.stolenAbilities.length > 0 &&
+                (state.gameState === 'FIGHTING' || state.gameState === 'CUSTOM_1V1')) {
+            for (let _i = 0; _i < this.stolenAbilities.length; _i++) {
+                if (this.stolenCooldowns[_i] > 0) continue;
+                const _sa = this.stolenAbilities[_i];
+                if (_sa === 'Dash' && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.3) {
+                    this.vx += Math.cos(this.angle) * 18;
+                    this.vy += Math.sin(this.angle) * 18;
+                    this.stolenCooldowns[_i] = 1.7;
+                } else if (_sa === 'Charge' && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.3) {
+                    this.charging = 1.0;
+                    this.stolenCooldowns[_i] = 2.5;
+                } else if (_sa === 'Grapple' && dist < 350) {
+                    this.grappling = 1.0;
+                    this.stolenCooldowns[_i] = 2.3;
+                } else if (_sa === 'Phase' && dist < this.r + enemy.r + 120) {
+                    this.intangible = 1.7;
+                    this.stolenCooldowns[_i] = 3.0;
+                } else if (_sa === 'Pulse' && dist < this.r + enemy.r + 120 && enemy.intangible <= 0) {
+                    this.pulseVisual = 0.5;
+                    enemy.takeDamage(12, this);
+                    enemy.vx += (dx / dist) * 14;
+                    enemy.vy += (dy / dist) * 14;
+                    this.stolenCooldowns[_i] = 3.0;
+                } else if (_sa === 'Teleport' && dist < 350) {
+                    emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.color, count: 20, speed: 2 });
+                    const tpDistance = enemy.r + this.r + 30;
+                    const targetX = enemy.x - Math.cos(enemy.angle) * tpDistance;
+                    const targetY = enemy.y - Math.sin(enemy.angle) * tpDistance;
+                    this.x = Math.max(this.r, Math.min(width - this.r, targetX));
+                    this.y = Math.max(this.r, Math.min(height - this.r, targetY));
+                    this.angle = enemy.angle;
+                    this.stolenCooldowns[_i] = 3.0;
+                } else if (_sa === 'Shield') {
+                    this.shield = 35;
+                    this.stolenCooldowns[_i] = 8.5;
+                } else if (_sa === 'Missile') {
+                    const px = this.x + Math.cos(this.angle) * (this.r + 10);
+                    const py = this.y + Math.sin(this.angle) * (this.r + 10);
+                    state.projectiles.push(new Projectile(px, py, enemy, this, this.angle, true, 8, 10));
+                    this.stolenCooldowns[_i] = 1.2;
+                } else if (_sa === 'Laser') {
+                    const px = this.x + Math.cos(this.angle) * (this.r + 10);
+                    const py = this.y + Math.sin(this.angle) * (this.r + 10);
+                    state.projectiles.push(new Projectile(px, py, enemy, this, this.angle, false, 18, 20));
+                    this.stolenCooldowns[_i] = 1.33;
+                    emitter.emit('fx:particles', { x: px, y: py, color: this.color, count: 10, speed: 2 });
+                } else if (_sa === 'Minion') {
+                    const px = this.x + Math.cos(this.angle) * (this.r + 10);
+                    const py = this.y + Math.sin(this.angle) * (this.r + 10);
+                    const spread = (Math.random() - 0.5) * 1.5;
+                    const p = new Projectile(px, py, enemy, this, this.angle + spread, true, 4.5, 2);
+                    p.isSwarm = true; p.r = 5.25; p.life = 5.0;
+                    state.projectiles.push(p);
+                    this.stolenCooldowns[_i] = 0.25;
+                } else if (_sa === 'Trap') {
+                    state.hazards.push(new Hazard(this.x, this.y, this));
+                    this.stolenCooldowns[_i] = 1.67;
+                } else if (_sa === 'Immunity') {
+                    this.immuneActive = true;
+                    this.stolenCooldowns[_i] = 5.0;
+                    const _self = this;
+                    setTimeout(() => { _self.immuneActive = false; }, 1500);
+                    emitter.emit('fx:text', { text: 'IMMUNE!', x: this.x, y: this.y - this.r - 45, color: '#fbbf24' });
+                    emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#fbbf24', count: 20, speed: 3 });
+                } else if (_sa === 'BlackPanther' && dist < this.r + enemy.r + 80) {
+                    this.vx += Math.cos(this.angle + Math.PI / 2 * this.flankDir) * 12;
+                    this.vy += Math.sin(this.angle + Math.PI / 2 * this.flankDir) * 12;
+                    this.stolenCooldowns[_i] = 1.4;
+                    emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#6b21a8', count: 8, speed: 4 });
+                } else if (_sa === 'SpeedRush') {
+                    // Passive — stacks accumulate via takeDamage; just block this slot permanently
+                    this.stolenCooldowns[_i] = 9999;
+                } else if (_sa === 'Trail') {
+                    // Passive — trail spawning is handled in the update loop above; block slot
+                    this.stolenCooldowns[_i] = 9999;
+                } else if (_sa === 'Boomerang' && !this.blade) {
+                    const _bAngle = Math.atan2(dy, dx);
+                    const blade = new BoomerangBlade(
+                        this.x + Math.cos(_bAngle) * (this.r + 12),
+                        this.y + Math.sin(_bAngle) * (this.r + 12),
+                        _bAngle, this, enemy
+                    );
+                    blade.stolenSlot = _i;
+                    this.blade = blade;
+                    state.boomerangs.push(blade);
+                    this.momentumArmor = 0.3;
+                    this.boomerangOut = true;
+                    // cooldown is set by _catch() when blade returns
+                } else if (_sa === 'Portal'
+                        && dist > 250
+                        && !state.portals.some(p => p.source === this && p.active)) {
+                    const _toEnemy = Math.atan2(dy, dx);
+                    const _ax = this.x, _ay = this.y;
+                    const _bx = Math.max(60, Math.min(width - 60, enemy.x + Math.cos(_toEnemy) * (enemy.r + 55)));
+                    const _by = Math.max(60, Math.min(height - 60, enemy.y + Math.sin(_toEnemy) * (enemy.r + 55)));
+                    state.portals.push(new PortalPair(_ax, _ay, _bx, _by, this));
+                    this.stolenCooldowns[_i] = 5.5;
+                    emitter.emit('fx:particles', { x: _ax, y: _ay, color: this.color, count: 20, speed: 3 });
+                    emitter.emit('fx:particles', { x: _bx, y: _by, color: this.color, count: 20, speed: 3 });
+                } else if (_sa === 'Summon') {
+                    const _minionCount = state.balls.filter(b => b.isMinion && b.master === this && b.hp > 0).length;
+                    if (_minionCount < 3) {
+                        const mDef = {
+                            ...this.def,
+                            hp: Math.max(1, Math.floor(this.maxHp * 0.18)),
+                            maxHp: Math.max(1, Math.floor(this.maxHp * 0.18)),
+                            damage: Math.max(1, Math.floor(this.baseDamage * 0.18)),
+                            r: 28, mass: 0.4, speed: 4.5, name: 'Minion',
+                            ability: 'Berserk',
+                            stolenAbilities: [],
+                        };
+                        const minion = new Ball(mDef);
+                        const _spawnAngle = Math.random() * Math.PI * 2;
+                        minion.x = Math.max(minion.r, Math.min(width - minion.r, this.x + Math.cos(_spawnAngle) * (this.r + 50)));
+                        minion.y = Math.max(minion.r, Math.min(height - minion.r, this.y + Math.sin(_spawnAngle) * (this.r + 50)));
+                        minion.team = this.team;
+                        minion.isMinion = true;
+                        minion.master = this;
+                        minion.behaviorState = 'AGGRESSIVE';
+                        state.balls.push(minion);
+                        emitter.emit('fx:particles', { x: minion.x, y: minion.y, color: this.color, count: 12, speed: 2 });
+                    }
+                    this.stolenCooldowns[_i] = 7.0;
+                } else if (_sa === 'Clone' && !this.hasClone) {
+                    const cloneDef = {
+                        ...this.def,
+                        hp: Math.floor(this.maxHp),
+                        maxHp: Math.floor(this.maxHp),
+                        damage: Math.floor(this.baseDamage),
+                        name: this.name + ' (Clone)',
+                        ability: 'Berserk',
+                        stolenAbilities: [],
+                    };
+                    const clone = new Ball(cloneDef);
+                    const spawnAngle = Math.atan2(dy, dx) + Math.PI / 2;
+                    clone.x = Math.max(clone.r, Math.min(width - clone.r, this.x + Math.cos(spawnAngle) * (this.r * 2 + 40)));
+                    clone.y = Math.max(clone.r, Math.min(height - clone.r, this.y + Math.sin(spawnAngle) * (this.r * 2 + 40)));
+                    clone.team = this.team;
+                    clone.isClone = true;
+                    clone.master = this;
+                    clone.behaviorState = 'FLANKING';
+                    clone.flankDir = -this.flankDir;
+                    state.balls.push(clone);
+                    this.hasClone = true;
+                    this.stolenCooldowns[_i] = 9999;
+                    emitter.emit('fx:text', { text: 'CLONE!', x: this.x, y: this.y - this.r - 45, color: this.color });
+                    emitter.emit('fx:particles', { x: clone.x, y: clone.y, color: this.color, count: 20, speed: 3 });
                 }
             }
         }
@@ -751,7 +916,11 @@ export class BoomerangBlade {
         this.source.blade = null;
         this.source.boomerangOut = false;
         this.source.momentumArmor = 0;
-        this.source.abilityCooldown = 2.8;
+        if (this.stolenSlot !== undefined) {
+            this.source.stolenCooldowns[this.stolenSlot] = 2.8;
+        } else {
+            this.source.abilityCooldown = 2.8;
+        }
     }
 }
 
