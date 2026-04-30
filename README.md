@@ -6,15 +6,15 @@ A browser-based 2D tournament simulator where 16 AI-controlled ball fighters com
 
 ## Fighters
 
-16 unique fighters, each with a distinct ability:
+28 unique fighters, each with a distinct ability:
 
 | Fighter | Ability | Playstyle |
 |---------|---------|-----------|
 | Dash | Dash | High speed, dashes forward to strike |
 | Titan | Heavy | Massive, high HP, turns slowly |
-| Dracula | Vampire | Heals 50% of damage dealt by its weapon |
+| Dracula | Vampire | Heals 28% of damage dealt by its weapon |
 | Ninja | Teleport | Periodically teleports behind the opponent |
-| Zerk | Berserk | Damage and speed massively increase as HP drops |
+| Zerk | Berserk | Damage and speed increase as HP drops |
 | Paladin | Shield | Periodically regenerates a protective shield |
 | Venom | Poison | Frontal strikes apply dangerous Damage-Over-Time |
 | Mage | Missile | Stays away and fires homing magic missiles |
@@ -24,8 +24,20 @@ A browser-based 2D tournament simulator where 16 AI-controlled ball fighters com
 | Ghost | Phase | Periodically becomes intangible to attacks |
 | Pulsar | Pulse | Emits a repelling, damaging energy shockwave |
 | Swarm | Minion | Spawns small homing drones to harass |
-| Thorn | Reflect | Reflects 40% of taken damage back to attacker |
+| Thorn | Reflect | Reflects 30% of taken damage back to attacker |
 | Comet | Charge | Builds massive momentum in a straight line |
+| Lil Lethal | Vampire | Heals 28% of damage dealt by its weapon |
+| Stick Man | Clone | Spawns a clone that flanks from the opposite side |
+| Legion | Summon | Periodically summons small minions |
+| CrazedAngelus | Immunity | Periodically becomes completely immune to all damage |
+| Dirty Dave | Absorb | Absorbs the opponent's ability |
+| Tron | Trail | Leaves a damaging neon trail that walls off the arena |
+| Ball Slayer | Boomerang | Hurls a boomerang blade that damages on throw and return |
+| The Gravy Train | SpeedRush | Gains speed every time it gets hit |
+| Jimbo | Portal | Creates portals to teleport behind the enemy |
+| TinyDancer | Dash | High speed, dashes forward to strike |
+| Black Panther | BlackPanther | High speed, high damage. Master flanker |
+| KayeeK | Phase | Periodically becomes intangible to attacks |
 
 ## Running Locally
 
@@ -81,6 +93,8 @@ game.js (requestAnimationFrame loop)
 | `js/fx.js` | Particle system, floating damage text |
 | `js/events.js` | Tiny `EventEmitter` singleton (`gameEvents`) |
 | `js/data.js` | 16 fighter stat/ability definitions |
+| `js/sim.js` | `SimEngine` — batch simulations between all fighter pairs |
+| `js/utils.js` | Utility functions (e.g., `normalizeAngle`) |
 | `api/*.js` | Vercel serverless: record-match, leaderboard, history |
 
 ### Game State Machine
@@ -88,6 +102,19 @@ game.js (requestAnimationFrame loop)
 `state.gamePhase` cycles: `BRACKET → FIGHTING → ANIMATING_WIN → BRACKET → ...`
 
 4 rounds (8 → 4 → 2 → 1 matches) per tournament.
+
+## Batch Simulation
+
+The project includes a `SimEngine` for running batch simulations:
+
+```javascript
+// Run N matches between every pair of fighters
+const sim = new SimEngine(baseBalls, 10);
+sim.start(
+    (progress) => console.log(`${progress.done}/${progress.total}`),
+    (results) => console.log(results)
+);
+```
 
 ## Deployment
 

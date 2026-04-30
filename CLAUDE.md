@@ -49,6 +49,8 @@ game.js (requestAnimationFrame loop)
 | `js/fx.js` | Particle system, floating damage text — event-driven spawning |
 | `js/events.js` | Tiny custom `EventEmitter` singleton (`gameEvents`) |
 | `js/data.js` | 16 fighter stat/ability definitions |
+| `js/sim.js` | `SimEngine` — runs batch simulations between all fighter pairs |
+| `js/utils.js` | Utility functions (e.g., `normalizeAngle`) |
 | `api/*.js` | Vercel serverless: record-match (POST), leaderboard (GET), history (GET) |
 
 ### Game State Machine
@@ -76,3 +78,8 @@ See [PLANNED IMPROVEMENTS.md](PLANNED IMPROVEMENTS.md) for the full roadmap. Hig
 - Speed multiplier toggle (1×/2×/4×)
 - Arena obstacles (static pillars)
 - Particle object pool (current approach allocates `new Particle()` each frame — GC pressure at high particle counts)
+
+### Completed
+
+- ~~HiDPI canvas scaling~~ ✅ — Implemented via `devicePixelRatio` in `resizeCanvas()`
+- ~~`performance.now()` instead of `Date.now()`~~ ✅ — Applied during project restructure
