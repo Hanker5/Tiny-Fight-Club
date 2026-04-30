@@ -221,6 +221,26 @@ export class Ball {
                 if (this.x < margin || this.x > width - margin || this.y < margin || this.y > height - margin) {
                     targetAngle = Math.atan2(height / 2 - this.y, width / 2 - this.x);
                 }
+                // Steer around obstacles that block the retreat path.
+                // Cast a ray from current position in targetAngle direction; if it passes
+                // within (ball.r + obs.r + buffer) of a pillar, deflect tangentially on
+                // whichever side opens more space away from the enemy.
+                const lookahead = 150;
+                const clearance = this.r + 48;
+                for (const obs of state.obstacles) {
+                    const odx = obs.x - this.x, ody = obs.y - this.y;
+                    if (Math.hypot(odx, ody) > lookahead + obs.r) continue;
+                    const rx = Math.cos(targetAngle), ry = Math.sin(targetAngle);
+                    const proj = odx * rx + ody * ry;
+                    if (proj < 0) continue; // obstacle is behind us
+                    const perpDist = Math.abs(odx * ry - ody * rx);
+                    if (perpDist < clearance + obs.r) {
+                        // cross > 0 → enemy is to the right of the retreat ray → steer left
+                        const cross = dx * ry - dy * rx;
+                        targetAngle += (cross >= 0 ? -1 : 1) * (Math.PI / 2.5);
+                        break;
+                    }
+                }
             }
 
             let activeSpeed = this.speed;
