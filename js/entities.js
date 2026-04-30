@@ -374,7 +374,7 @@ export class Ball {
 
             } else if (this.ability === 'Pulse' && dist < (this.r + enemy.r + 120) && enemy.intangible <= 0) {
                 this.abilityCooldown = 3.0;
-                this.pulseVisual     = 0.25;
+                this.pulseVisual     = 0.5;
                 enemy.takeDamage(12, this);
                 enemy.vx += (dx / dist) * 14;
                 enemy.vy += (dy / dist) * 14;

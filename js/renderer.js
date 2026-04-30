@@ -68,11 +68,42 @@ export function drawBall(ctx, ball) {
     }
 
     if (ball.pulseVisual > 0) {
+        const pulseDuration = 0.5;
+        const remaining = Math.min(1, ball.pulseVisual / pulseDuration);
+        const progress = 1 - remaining;
+        const waveRadius = ball.r + 18 + progress * 150;
+        const innerRadius = ball.r + 8 + progress * 55;
+        const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 45);
+
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+
         ctx.beginPath();
-        ctx.arc(0, 0, ball.r + (15 - ball.pulseVisual) * 4, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(14, 165, 233, ${ball.pulseVisual / 15})`;
-        ctx.lineWidth = 4;
+        ctx.arc(0, 0, waveRadius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(14, 165, 233, ${0.12 * remaining})`;
+        ctx.fill();
+
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 28 * remaining * pulse;
+        ctx.lineWidth = 10;
+        ctx.strokeStyle = `rgba(125, 211, 252, ${0.55 * remaining})`;
         ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, 0, innerRadius, 0, Math.PI * 2);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = `rgba(240, 249, 255, ${0.85 * remaining})`;
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.setLineDash([14, 8]);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = `rgba(14, 165, 233, ${0.75 * remaining})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, waveRadius + 12, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
     }
 
     ctx.rotate(ball.angle);
