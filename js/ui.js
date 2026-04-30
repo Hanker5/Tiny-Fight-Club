@@ -6,7 +6,7 @@ import { emitter } from './events.js';
 // when the simulation emits events.
 
 emitter.on('match:start', ({ ball1, ball2, round }) => {
-    const rName = ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'][round];
+    const rName = round === -1 ? 'Quick Fight' : ['Round of 16', 'Quarterfinals', 'Semifinals', 'Finals'][round];
     const mh    = document.getElementById('match-header');
 
     const p1Display = ball1.def.player || ball1.name;
@@ -29,12 +29,14 @@ emitter.on('match:start', ({ ball1, ball2, round }) => {
     mh.classList.remove('hidden');
     document.getElementById('match-timer').classList.remove('hidden');
     document.getElementById('speed-btn').classList.remove('hidden');
-    renderBracket();
+    if (round !== -1) renderBracket();
 });
 
-emitter.on('match:end', () => {
-    renderBracket();
-    renderRoster();
+emitter.on('match:end', ({ custom } = {}) => {
+    if (!custom) {
+        renderBracket();
+        renderRoster();
+    }
     document.getElementById('match-header').classList.add('hidden');
     document.getElementById('match-timer').classList.add('hidden');
     document.getElementById('speed-btn').classList.add('hidden');
@@ -66,6 +68,46 @@ export function showOverlay(title, desc, btnText, action, color = 'white') {
     const btn = document.getElementById('start-btn');
     btn.innerText = btnText;
     btn.onclick = action;
+    const quickBtn = document.getElementById('quick-fight-btn');
+    if (quickBtn) quickBtn.classList.remove('hidden');
+    const simBtn = document.getElementById('sim-btn');
+    if (simBtn) simBtn.classList.add('hidden');
+    overlay.classList.remove('hidden');
+    overlay.style.opacity = '1';
+}
+
+export function showCustomResultOverlay(winner, onFightAgain, onChange, onMenu) {
+    const overlay = document.getElementById('overlay');
+    const title = document.getElementById('overlay-title');
+    const desc = document.getElementById('overlay-desc');
+    const startBtn = document.getElementById('start-btn');
+    const quickBtn = document.getElementById('quick-fight-btn');
+
+    title.innerText = `${winner.name} Wins!`;
+    title.style.color = winner.color;
+    desc.innerText = 'Run it back, pick a new matchup, or return to the main menu.';
+
+    startBtn.innerText = 'Fight Again';
+    startBtn.onclick = onFightAgain;
+
+    quickBtn.innerText = 'Change Fighters';
+    quickBtn.onclick = onChange;
+    quickBtn.classList.remove('hidden');
+    const simBtn = document.getElementById('sim-btn');
+    if (simBtn) simBtn.classList.add('hidden');
+
+    let menuBtn = document.getElementById('menu-btn');
+    if (!menuBtn) {
+        menuBtn = document.createElement('button');
+        menuBtn.id = 'menu-btn';
+        menuBtn.className = 'bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-full transition-all transform hover:scale-105 active:scale-95';
+        menuBtn.style.cssText = 'font-size: clamp(11px, 1.4vw, 22px); padding: clamp(6px, 0.6vw, 12px) clamp(14px, 1.6vw, 28px)';
+        quickBtn.parentElement.appendChild(menuBtn);
+    }
+    menuBtn.innerText = 'Back to Menu';
+    menuBtn.onclick = onMenu;
+    menuBtn.classList.remove('hidden');
+
     overlay.classList.remove('hidden');
     overlay.style.opacity = '1';
 }
@@ -74,6 +116,8 @@ export function hideOverlay() {
     const overlay = document.getElementById('overlay');
     overlay.style.opacity = '0';
     setTimeout(() => overlay.classList.add('hidden'), 300);
+    const menuBtn = document.getElementById('menu-btn');
+    if (menuBtn) menuBtn.classList.add('hidden');
 }
 
 export function renderBracket() {
@@ -181,12 +225,19 @@ export function renderRoster() {
 
 // ─── Tournament Builder ───────────────────────────────────────────────────────
 
-export function showBuilder(allDefs, onStart) {
+export function showBuilder(allDefs, onStart, onBack) {
     const overlay  = document.getElementById('builder-overlay');
     const grid     = document.getElementById('builder-grid');
     const counter  = document.getElementById('builder-counter');
     const startBtn = document.getElementById('builder-start-btn');
     const randomBtn = document.getElementById('builder-random-btn');
+    const backBtn = document.getElementById('builder-back-btn');
+    const title = overlay.querySelector('h2');
+
+    title.textContent = 'Select Your Fighters';
+    randomBtn.classList.remove('hidden');
+    randomBtn.textContent = 'Random 16';
+    startBtn.textContent = 'Start Tournament';
 
     let selected = new Set();
 
@@ -242,6 +293,11 @@ export function showBuilder(allDefs, onStart) {
         updateUI();
     };
 
+    backBtn.onclick = () => {
+        hideBuilder();
+        onBack();
+    };
+
     startBtn.onclick = () => {
         if (selected.size !== 16) return;
         const pickedDefs = [...selected].map(i => allDefs[i]);
@@ -257,6 +313,94 @@ export function showBuilder(allDefs, onStart) {
 export function hideBuilder() {
     const overlay = document.getElementById('builder-overlay');
     if (overlay) overlay.classList.add('hidden');
+}
+
+export function showQuickFightPicker(allDefs, onStart, onBack) {
+    const overlay  = document.getElementById('builder-overlay');
+    const grid     = document.getElementById('builder-grid');
+    const counter  = document.getElementById('builder-counter');
+    const startBtn = document.getElementById('builder-start-btn');
+    const randomBtn = document.getElementById('builder-random-btn');
+    const backBtn = document.getElementById('builder-back-btn');
+    const title = overlay.querySelector('h2');
+
+    let selected = new Set();
+
+    title.textContent = 'Choose Quick Fight';
+    randomBtn.classList.remove('hidden');
+    randomBtn.textContent = 'Random 2';
+    startBtn.textContent = 'Fight!';
+
+    function renderCards() {
+        grid.innerHTML = allDefs.map((def, i) => {
+            const isSel = selected.has(i);
+            const playerLine = def.player
+                ? `<div style="font-size:11px;color:#64748b;margin-bottom:2px">${def.player}</div>`
+                : '';
+            const check = isSel
+                ? `<div style="margin-left:auto;color:#bbf7d0;font-weight:900;font-size:14px">&check;</div>`
+                : '';
+            return `<div class="builder-card select-none cursor-pointer rounded-lg border-2 p-2 transition-all"
+                        style="background:${isSel ? '#052e2b' : '#1e293b'};border-color:${isSel ? '#2dd4bf' : '#334155'};box-shadow:${isSel ? '0 0 18px rgba(45,212,191,0.35)' : 'none'}"
+                        data-idx="${i}">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                    <div style="width:16px;height:16px;border-radius:50%;background:${def.color};flex-shrink:0;border:1px solid #0f172a"></div>
+                    <span style="font-weight:700;color:#f1f5f9;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${def.name}</span>
+                    ${check}
+                </div>
+                ${playerLine}
+                <div style="font-size:10px;color:#2dd4bf;font-weight:600;margin-bottom:3px">${def.ability}</div>
+                <div style="font-size:10px;color:#64748b;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${def.desc}</div>
+                <div style="font-size:10px;color:#475569;margin-top:4px;display:flex;gap:8px">
+                    <span>HP:${def.hp}</span><span>DMG:${def.damage}</span><span>SPD:${def.speed}</span>
+                </div>
+            </div>`;
+        }).join('');
+
+        grid.querySelectorAll('.builder-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const idx = Number(card.dataset.idx);
+                if (selected.has(idx)) {
+                    selected.delete(idx);
+                } else if (selected.size < 2) {
+                    selected.add(idx);
+                }
+                updateUI();
+            });
+        });
+    }
+
+    function updateUI() {
+        renderCards();
+        const n = selected.size;
+        counter.textContent = `${n} / 2 selected`;
+        counter.style.color = n === 2 ? '#4ade80' : '#94a3b8';
+        const ready = n === 2;
+        startBtn.disabled = !ready;
+        startBtn.style.opacity = ready ? '1' : '0.4';
+        startBtn.style.cursor = ready ? 'pointer' : 'not-allowed';
+    }
+
+    randomBtn.onclick = () => {
+        selected = new Set([...allDefs.keys()].sort(() => Math.random() - 0.5).slice(0, 2));
+        updateUI();
+    };
+
+    backBtn.onclick = () => {
+        hideBuilder();
+        onBack();
+    };
+
+    startBtn.onclick = () => {
+        if (selected.size !== 2) return;
+        const pickedDefs = [...selected].map(i => allDefs[i]);
+        hideBuilder();
+        onStart(pickedDefs[0], pickedDefs[1]);
+    };
+
+    updateUI();
+    hideOverlay();
+    overlay.classList.remove('hidden');
 }
 
 // ─── Leaderboard ──────────────────────────────────────────────────────────────

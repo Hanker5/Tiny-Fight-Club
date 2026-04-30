@@ -96,10 +96,10 @@
             </div>
             <div id="builder-grid" style="flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;align-content:start"></div>
             <div style="display:flex;gap:12px;padding:14px 24px;border-top:1px solid #1e293b;flex-shrink:0;justify-content:center">
-                <button id="sim-btn"
-                        style="background:#1e293b;color:#94a3b8;font-weight:700;border-radius:8px;padding:8px 20px;border:1px solid #334155;cursor:pointer;font-size:clamp(11px,1.1vw,16px);transition:background 0.15s"
+                <button id="builder-back-btn"
+                        style="background:#1e293b;color:#cbd5e1;font-weight:700;border-radius:8px;padding:8px 20px;border:1px solid #334155;cursor:pointer;font-size:clamp(11px,1.1vw,16px);transition:background 0.15s"
                         onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">
-                    Balance Sim
+                    Back
                 </button>
                 <button id="builder-random-btn"
                         style="background:#334155;color:#f1f5f9;font-weight:700;border-radius:8px;padding:8px 20px;border:none;cursor:pointer;font-size:clamp(11px,1.1vw,16px);transition:background 0.15s"
@@ -119,10 +119,20 @@
                 style="font-size: clamp(20px, 4.5vw, 72px)">Tiny Fight Club</h2>
             <div id="overlay-desc" class="text-slate-300 mb-8 max-w-md text-center px-4"
                  style="font-size: clamp(12px, 1.6vw, 26px)">Welcome to the arena.</div>
-            <button id="start-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-full transition-all transform hover:scale-105 hover:shadow-indigo-500/50 hover:shadow-lg active:scale-95"
-                    style="font-size: clamp(12px, 1.6vw, 26px); padding: clamp(8px, 0.8vw, 16px) clamp(16px, 2vw, 32px)">
-                Start Tournament
-            </button>
+            <div class="flex flex-col gap-3 items-center">
+                <button id="start-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-full transition-all transform hover:scale-105 hover:shadow-indigo-500/50 hover:shadow-lg active:scale-95"
+                        style="font-size: clamp(12px, 1.6vw, 26px); padding: clamp(8px, 0.8vw, 16px) clamp(16px, 2vw, 32px)">
+                    Start Tournament
+                </button>
+                <button id="quick-fight-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-full transition-all transform hover:scale-105 active:scale-95"
+                        style="font-size: clamp(11px, 1.4vw, 22px); padding: clamp(6px, 0.6vw, 12px) clamp(14px, 1.6vw, 28px)">
+                    Quick Fight
+                </button>
+                <button id="sim-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-full transition-all transform hover:scale-105 active:scale-95"
+                        style="font-size: clamp(11px, 1.4vw, 22px); padding: clamp(6px, 0.6vw, 12px) clamp(14px, 1.6vw, 28px)">
+                    Balance Sim
+                </button>
+            </div>
         </div>
     </div>
 

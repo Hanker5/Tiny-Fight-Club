@@ -322,7 +322,7 @@ export class Ball {
 
             let activeSpeed = this.speed;
             if (this.ability === 'Berserk') activeSpeed *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.2;
-            if (this.ability === 'SpeedRush') activeSpeed += Math.min(this.rushStacks * 0.35, 3.0);
+            if (this.ability === 'SpeedRush') activeSpeed += Math.min(this.rushStacks * 0.4, 3.0);
 
             const angleDiff = normalizeAngle(targetAngle - this.angle);
             let turnSpeed = 0.05 * (activeSpeed / 4) * F;
@@ -344,7 +344,7 @@ export class Ball {
             }
         }
 
-        if (this.abilityCooldown <= 0 && state.gameState === 'FIGHTING') {
+        if (this.abilityCooldown <= 0 && (state.gameState === 'FIGHTING' || state.gameState === 'CUSTOM_1V1')) {
             if (this.ability === 'Dash' && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.3) {
                 this.vx += Math.cos(this.angle) * 18;
                 this.vy += Math.sin(this.angle) * 18;

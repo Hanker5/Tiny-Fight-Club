@@ -13,10 +13,14 @@ import {
     drawTrail, drawBoomerang, drawPortal
 } from './renderer.js';
 // ui.js: imported for side-effects (event subscriptions) + direct overlay/render calls
-import { showOverlay, hideOverlay, renderBracket, renderRoster, updateMatchTimer, showBuilder, hideBuilder } from './ui.js';
+import {
+    showOverlay, hideOverlay, renderBracket, renderRoster, updateMatchTimer,
+    showBuilder, hideBuilder, showQuickFightPicker, showCustomResultOverlay
+} from './ui.js';
 
 // Record each match result to the backend — fire-and-forget, never throws.
-emitter.on('match:end', async ({ winner, loser, round, duration }) => {
+emitter.on('match:end', async ({ winner, loser, round, duration, custom }) => {
+    if (custom) return;
     try {
         await fetch('/api/record-match', {
             method: 'POST',
@@ -64,10 +68,57 @@ function getViewport() {
 }
 
 function initTournament() {
+    setTournamentPanelVisible(true);
     state.currentRound  = 0;
     state.currentMatch  = 0;
     state.tourneyWinner = null;
-    showBuilder(baseBalls, buildTournamentFromSelection);
+    state.matchMode = 'TOURNAMENT';
+    showBuilder(baseBalls, buildTournamentFromSelection, showMainMenu);
+}
+
+function showMainMenu() {
+    setTournamentPanelVisible(true);
+    if (state.autoStartTimer) { clearTimeout(state.autoStartTimer); state.autoStartTimer = null; }
+    state.gameState = 'BRACKET';
+    state.matchMode = 'TOURNAMENT';
+    state.ball1 = null;
+    state.ball2 = null;
+    state.balls = [];
+    state.projectiles = [];
+    state.particles = [];
+    state.floatingTexts = [];
+    state.hazards = [];
+    state.trails = [];
+    state.boomerangs = [];
+    state.portals = [];
+    state.confetti = [];
+    state.matchTime = 0;
+    state.suddenDeath = false;
+    state.shrinkInset = 0;
+
+    const quickBtn = document.getElementById('quick-fight-btn');
+    quickBtn.innerText = 'Quick Fight';
+    quickBtn.onclick = openQuickFightPicker;
+    quickBtn.classList.remove('hidden');
+    const menuBtn = document.getElementById('menu-btn');
+    if (menuBtn) menuBtn.classList.add('hidden');
+
+    showOverlay('Tiny Fight Club', 'Welcome to the arena.', 'Start Tournament', initTournament);
+    const simBtn = document.getElementById('sim-btn');
+    if (simBtn) simBtn.classList.remove('hidden');
+}
+
+function setTournamentPanelVisible(visible) {
+    const panel = document.getElementById('left-panel');
+    if (!panel) return;
+    panel.classList.toggle('hidden', !visible);
+    resizeCanvas();
+}
+
+function openQuickFightPicker() {
+    if (state.autoStartTimer) { clearTimeout(state.autoStartTimer); state.autoStartTimer = null; }
+    setTournamentPanelVisible(false);
+    showQuickFightPicker(baseBalls, startCustomMatch, showMainMenu);
 }
 
 function buildTournamentFromSelection(selectedDefs) {
@@ -111,6 +162,7 @@ function buildTournamentFromSelection(selectedDefs) {
     ];
 
     state.gameState = 'BRACKET';
+    state.matchMode = 'TOURNAMENT';
 
     renderBracket();
     renderRoster();
@@ -156,6 +208,7 @@ function startNextMatch() {
     state.suddenDeath   = false;
     state.shrinkInset   = 0;
     state.gameState     = 'FIGHTING';
+    state.matchMode     = 'TOURNAMENT';
     state.matchStartTime = performance.now();
 
     hideOverlay();
@@ -167,7 +220,102 @@ function startNextMatch() {
     });
 }
 
+// Custom 1v1 match (Quick Fight mode)
+let customMatchDefs = null; // Stores [def1, def2] for Fight Again
+
+export function startCustomMatch(def1, def2) {
+    if (state.autoStartTimer) clearTimeout(state.autoStartTimer);
+    setTournamentPanelVisible(false);
+
+    // Apply stat variance like tournament matches
+    const applyVariance = (base) => {
+        const hpVar    = 0.9 + Math.random() * 0.2;
+        const speedVar = 0.9 + Math.random() * 0.2;
+        const dmgVar   = 0.9 + Math.random() * 0.2;
+        return {
+            ...base,
+            hp:     Math.floor(base.hp    * hpVar),
+            maxHp:  Math.floor(base.maxHp * hpVar),
+            speed:  parseFloat((base.speed * speedVar).toFixed(1)),
+            damage: Math.floor(base.damage * dmgVar)
+        };
+    };
+
+    const p1 = applyVariance(def1);
+    const p2 = applyVariance(def2);
+
+    state.ball1 = new Ball(p1);
+    state.ball2 = new Ball(p2);
+
+    state.ball1.team = 1;
+    state.ball2.team = 2;
+
+    const margin = 120;
+    const halfW  = VIRTUAL_W / 2;
+
+    state.ball1.x     = margin + Math.random() * (halfW - margin * 2);
+    state.ball1.y     = margin + Math.random() * (VIRTUAL_H - margin * 2);
+    state.ball1.angle = Math.random() * Math.PI * 2;
+    state.ball1.vx    = (Math.random() - 0.5) * 12;
+    state.ball1.vy    = (Math.random() - 0.5) * 12;
+
+    state.ball2.x     = halfW + margin + Math.random() * (halfW - margin * 2);
+    state.ball2.y     = margin + Math.random() * (VIRTUAL_H - margin * 2);
+    state.ball2.angle = Math.random() * Math.PI * 2;
+    state.ball2.vx    = (Math.random() - 0.5) * 12;
+    state.ball2.vy    = (Math.random() - 0.5) * 12;
+
+    state.balls         = [state.ball1, state.ball2];
+    state.projectiles   = [];
+    state.particles     = [];
+    state.floatingTexts = [];
+    state.hazards       = [];
+    state.trails        = [];
+    state.boomerangs    = [];
+    state.portals       = [];
+    state.confetti      = [];
+    state.obstacles     = OBSTACLES;
+    state.matchTime     = 0;
+    state.suddenDeath   = false;
+    state.shrinkInset   = 0;
+    state.gameState     = 'CUSTOM_1V1';
+    state.matchMode     = 'CUSTOM_1V1';
+    state.matchStartTime = performance.now();
+
+    // Store for Fight Again
+    customMatchDefs = [def1, def2];
+
+    hideOverlay();
+    hideBuilder();
+    emitter.emit('match:start', {
+        ball1: state.ball1,
+        ball2: state.ball2,
+        round: -1, // Custom match indicator
+        matchIndex: -1
+    });
+}
+
 function endMatch(winnerDef, loserDef, duration) {
+    if (state.matchMode === 'CUSTOM_1V1') {
+        state.gameState = 'BRACKET';
+        emitter.emit('match:end', {
+            winner: winnerDef,
+            loser: loserDef,
+            round: -1,
+            matchIndex: -1,
+            duration,
+            custom: true
+        });
+
+        showCustomResultOverlay(
+            winnerDef,
+            () => startCustomMatch(customMatchDefs[0], customMatchDefs[1]),
+            openQuickFightPicker,
+            showMainMenu
+        );
+        return;
+    }
+
     state.bracket[state.currentRound][state.currentMatch].winner = winnerDef;
 
     const round      = state.currentRound;
@@ -241,7 +389,7 @@ function gameLoop(timestamp) {
 
     const { scale, offsetX, offsetY } = getViewport();
 
-    if (state.gameState === 'FIGHTING') {
+    if (state.gameState === 'FIGHTING' || state.gameState === 'CUSTOM_1V1') {
         // Update
         state.matchTime += simDt;
 
@@ -502,7 +650,8 @@ window.onload = () => {
         import('./sim.js').then(m => m.openSimPanel());
     });
 
-    initTournament();
+    document.getElementById('quick-fight-btn').onclick = openQuickFightPicker;
+    showMainMenu();
     then = performance.now();
     requestAnimationFrame(gameLoop);
 };

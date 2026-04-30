@@ -4,6 +4,7 @@ export const state = {
     currentMatch: 0,
     tourneyWinner: null,
     gameState: 'BRACKET',
+    matchMode: 'TOURNAMENT',
     autoStartTimer: null,
     ball1: null,
     ball2: null,
