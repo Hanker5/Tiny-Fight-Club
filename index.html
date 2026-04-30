@@ -22,6 +22,11 @@
                     style="font-size: clamp(9px, 1vw, 17px)">LEADERBOARD</button>
         </div>
 
+        <!-- Fighter detail panel (shown during balance sim) -->
+        <div id="sim-fighter-panel" class="hidden flex-col flex-1 min-h-0">
+            <canvas id="sim-fighter-canvas" style="display:block;width:100%;flex:1;min-height:0"></canvas>
+        </div>
+
         <!-- Bracket view -->
         <div id="view-bracket" class="flex flex-col flex-1 min-h-0">
             <div id="bracket-container" class="flex-1 overflow-auto p-4 flex items-center shadow-inner">

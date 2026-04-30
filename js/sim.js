@@ -289,6 +289,19 @@ class SimEngine {
 // ─── SimUI ────────────────────────────────────────────────────────────────────
 
 let _engine = null;
+let _selectedFighterName = null;
+
+const MAX_HP  = 172;
+const MAX_SPD = 6.2;
+const MAX_DMG = 19;
+
+const TIER_THRESHOLDS = [
+    { label: 'S', min: 55, color: '#f59e0b' },
+    { label: 'A', min: 50, color: '#22c55e' },
+    { label: 'B', min: 45, color: '#3b82f6' },
+    { label: 'C', min: 40, color: '#f97316' },
+    { label: 'D', min: 0,  color: '#ef4444' },
+];
 
 export function openSimPanel() {
     if (state.gameState !== 'BRACKET') return;
@@ -307,6 +320,18 @@ export function openSimPanel() {
 
     document.getElementById('sim-run-btn').onclick   = _startRun;
     document.getElementById('sim-close-btn').onclick = _closePanel;
+
+    // Show fighter detail panel in left panel
+    document.getElementById('view-bracket').classList.add('hidden');
+    document.getElementById('view-leaderboard').classList.add('hidden');
+    const fp = document.getElementById('sim-fighter-panel');
+    fp.classList.remove('hidden');
+    fp.style.display = 'flex';
+    _selectedFighterName = null;
+    requestAnimationFrame(() => _drawDefaultCard());
+
+    // Click delegation on results table
+    document.getElementById('sim-results-table').addEventListener('click', _onResultsClick);
 }
 
 function _closePanel() {
@@ -315,6 +340,14 @@ function _closePanel() {
     const overlay = document.getElementById('sim-overlay');
     overlay.style.display = 'none';
     overlay.classList.add('hidden');
+
+    // Restore left panel
+    document.getElementById('sim-fighter-panel').style.display = 'none';
+    document.getElementById('sim-fighter-panel').classList.add('hidden');
+    document.getElementById('view-bracket').classList.remove('hidden');
+    document.getElementById('view-bracket').classList.add('flex');
+    document.getElementById('sim-results-table').removeEventListener('click', _onResultsClick);
+    _selectedFighterName = null;
 
     resumeFromSim();
 }
@@ -383,7 +416,8 @@ function _renderResults(results, defs) {
         const pct    = r.winRate ?? 0;
         const pctStr = r.winRate !== null ? pct.toFixed(1) + '%' : '—';
         const color  = pct >= 55 ? '#4ade80' : pct <= 45 ? '#f87171' : '#f1f5f9';
-        html += `<tr style="border-bottom:1px solid #1e293b">
+        const isSelected = r.def.name === _selectedFighterName;
+        html += `<tr data-fighter="${r.def.name}" style="border-bottom:1px solid #1e293b;cursor:pointer;${isSelected ? 'background:#1e293b' : ''}">
           <td style="padding:5px 8px;color:#64748b">${i + 1}</td>
           <td style="padding:5px 8px">
             <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${r.def.color};margin-right:6px;vertical-align:middle"></span>
@@ -403,6 +437,444 @@ function _renderResults(results, defs) {
 
     html += `</tbody></table>`;
     document.getElementById('sim-results-table').innerHTML = html;
+
+    if (_selectedFighterName) _drawFighterCard(_selectedFighterName, results);
+}
+
+function _onResultsClick(e) {
+    const row = e.target.closest('tr[data-fighter]');
+    if (!row) return;
+    _selectedFighterName = row.dataset.fighter;
+    _drawFighterCard(_selectedFighterName, _engine ? _engine.results : null);
+}
+
+// ─── Canvas Helpers ───────────────────────────────────────────────────────────
+
+function _getCanvasCtx() {
+    const canvas = document.getElementById('sim-fighter-canvas');
+    if (!canvas) return null;
+    const dpr  = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth;
+    const cssH = canvas.clientHeight;
+    if (cssW === 0 || cssH === 0) return null;
+    canvas.width  = cssW * dpr;
+    canvas.height = cssH * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return { ctx, cssW, cssH };
+}
+
+function _wrapText(ctx, text, x, y, maxW, lineH, maxLines) {
+    const words = text.split(' ');
+    let line = '';
+    let linesDrawn = 0;
+    for (let i = 0; i < words.length; i++) {
+        const test = line ? line + ' ' + words[i] : words[i];
+        if (ctx.measureText(test).width > maxW && line) {
+            if (linesDrawn === maxLines - 1) {
+                // last allowed line — append ellipsis
+                let trimmed = line;
+                while (trimmed.length > 0 && ctx.measureText(trimmed + '…').width > maxW) {
+                    trimmed = trimmed.slice(0, -1);
+                }
+                ctx.fillText(trimmed + '…', x, y);
+                return linesDrawn + 1;
+            }
+            ctx.fillText(line, x, y);
+            y += lineH;
+            linesDrawn++;
+            line = words[i];
+        } else {
+            line = test;
+        }
+    }
+    if (line) { ctx.fillText(line, x, y); linesDrawn++; }
+    return linesDrawn;
+}
+
+function _drawRoundRect(ctx, x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+    if (fill)   { ctx.fillStyle = fill;   ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+
+function _getTier(winPct) {
+    for (const t of TIER_THRESHOLDS) {
+        if (winPct >= t.min) return t;
+    }
+    return TIER_THRESHOLDS[TIER_THRESHOLDS.length - 1];
+}
+
+function _drawDefaultCard() {
+    const c = _getCanvasCtx();
+    if (!c) return;
+    const { ctx, cssW, cssH } = c;
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, cssW, cssH);
+
+    const cx = cssW / 2, cy = cssH / 2;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy - 30, 36, 0, Math.PI * 2);
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Simple "person" silhouette inside circle
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 42, 8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - 34);
+    ctx.lineTo(cx, cy - 16);
+    ctx.moveTo(cx - 10, cy - 28);
+    ctx.lineTo(cx + 10, cy - 28);
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#475569';
+    ctx.font = 'bold 15px system-ui, sans-serif';
+    ctx.fillText('No Fighter Selected', cx, cy + 20);
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillStyle = '#334155';
+    ctx.fillText('Click any row to view details', cx, cy + 40);
+}
+
+function _drawFighterCard(name, results) {
+    const def = baseBalls.find(d => d.name === name);
+    if (!def) return;
+
+    const c = _getCanvasCtx();
+    if (!c) return;
+    const { ctx, cssW, cssH } = c;
+
+    const pad   = Math.round(cssW * 0.07);
+    const useW  = cssW - pad * 2;
+    let   curY  = 0;
+
+    // Background
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, cssW, cssH);
+
+    // Subtle top gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, cssH * 0.4);
+    grad.addColorStop(0, 'rgba(30,41,59,0.25)');
+    grad.addColorStop(1, 'rgba(15,23,42,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, cssW, cssH * 0.4);
+
+    // ── Avatar ─────────────────────────────────────────────────────────────────
+    const avR = Math.min(cssW * 0.13, 58);
+    const avX = cssW / 2;
+    curY += avR + pad;
+    const avY = curY;
+
+    // Glow ring
+    ctx.beginPath();
+    ctx.arc(avX, avY, avR + 6, 0, Math.PI * 2);
+    ctx.fillStyle = def.color + '22';
+    ctx.fill();
+
+    // Main circle
+    ctx.beginPath();
+    ctx.arc(avX, avY, avR, 0, Math.PI * 2);
+    ctx.fillStyle = def.color;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Initial letter
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `bold ${Math.round(avR * 0.78)}px system-ui, sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillText(def.name[0].toUpperCase(), avX, avY);
+    ctx.textBaseline = 'alphabetic';
+
+    // Tier badge (top-right of avatar)
+    const hasResults = results && results[name] && Object.keys(results[name]).some(k => {
+        const r = results[name][k];
+        return (r.wins + r.losses + r.draws) > 0;
+    });
+
+    if (hasResults) {
+        let totalW = 0, totalL = 0, totalD = 0;
+        for (const rec of Object.values(results[name])) {
+            totalW += rec.wins; totalL += rec.losses; totalD += rec.draws;
+        }
+        const played  = totalW + totalL + totalD;
+        const winPct  = played > 0 ? totalW / played * 100 : 0;
+        const tier    = _getTier(winPct);
+        const badgeR  = 13;
+        const badgeX  = avX + avR * 0.68;
+        const badgeY  = avY - avR * 0.68;
+
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, badgeR, 0, Math.PI * 2);
+        ctx.fillStyle = tier.color;
+        ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold 12px system-ui, sans-serif`;
+        ctx.fillStyle = '#fff';
+        ctx.fillText(tier.label, badgeX, badgeY);
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    curY += avR + 14;
+
+    // ── Name ───────────────────────────────────────────────────────────────────
+    let nameFontSize = Math.min(cssW * 0.072, 24);
+    ctx.textAlign = 'center';
+    ctx.font = `bold ${nameFontSize}px system-ui, sans-serif`;
+    while (ctx.measureText(def.name).width > useW && nameFontSize > 13) {
+        nameFontSize--;
+        ctx.font = `bold ${nameFontSize}px system-ui, sans-serif`;
+    }
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillText(def.name, cssW / 2, curY);
+    curY += nameFontSize + 2;
+
+    if (def.player) {
+        ctx.font = `italic ${Math.round(nameFontSize * 0.68)}px system-ui, sans-serif`;
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText('• ' + def.player, cssW / 2, curY);
+        curY += Math.round(nameFontSize * 0.68) + 4;
+    }
+    curY += 10;
+
+    // ── Win / Loss Summary ──────────────────────────────────────────────────────
+    if (hasResults) {
+        let totalW = 0, totalL = 0, totalD = 0;
+        for (const rec of Object.values(results[name])) {
+            totalW += rec.wins; totalL += rec.losses; totalD += rec.draws;
+        }
+        const played  = totalW + totalL + totalD;
+        const winPct  = played > 0 ? (totalW / played * 100).toFixed(1) : '0.0';
+
+        _drawRoundRect(ctx, pad, curY, useW, 32, 6, '#1e293b', null);
+
+        const colW = useW / 3;
+        const pillY = curY + 16;
+        ctx.textAlign = 'center';
+
+        ctx.font = 'bold 14px system-ui, sans-serif';
+        ctx.fillStyle = '#4ade80';
+        ctx.fillText(totalW, pad + colW * 0.5, pillY);
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('W', pad + colW * 0.5, pillY + 12);
+
+        ctx.font = 'bold 14px system-ui, sans-serif';
+        ctx.fillStyle = '#f87171';
+        ctx.fillText(totalL, pad + colW * 1.5, pillY);
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('L', pad + colW * 1.5, pillY + 12);
+
+        ctx.font = 'bold 14px system-ui, sans-serif';
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillText(winPct + '%', pad + colW * 2.5, pillY);
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText('WIN%', pad + colW * 2.5, pillY + 12);
+
+        curY += 46;
+    }
+
+    // Divider
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, curY);
+    ctx.lineTo(cssW - pad, curY);
+    ctx.stroke();
+    curY += 10;
+
+    // ── Stat Bars ──────────────────────────────────────────────────────────────
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = '#64748b';
+    ctx.textAlign = 'left';
+    ctx.fillText('STATS', pad, curY);
+    curY += 14;
+
+    const barRows = [
+        { label: 'HP',  value: def.hp,     max: MAX_HP,  color: '#22c55e',  valStr: String(def.hp) },
+        { label: 'SPD', value: def.speed,  max: MAX_SPD, color: '#06b6d4',  valStr: String(def.speed) },
+        { label: 'DMG', value: def.damage, max: MAX_DMG, color: null,       valStr: String(def.damage) },
+    ];
+    const labelW = 28;
+    const valW   = 30;
+    const barH   = 7;
+    const barX   = pad + labelW + 4;
+    const barMaxW = useW - labelW - 4 - valW - 4;
+
+    for (const row of barRows) {
+        const fillFrac = Math.min(1, row.value / row.max);
+        const fillW    = Math.max(4, fillFrac * barMaxW);
+
+        // Label
+        ctx.textAlign = 'left';
+        ctx.font = `bold 11px system-ui, sans-serif`;
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillText(row.label, pad, curY + barH - 1);
+
+        // Track
+        _drawRoundRect(ctx, barX, curY, barMaxW, barH, 3, '#1e293b', null);
+
+        // Fill
+        if (row.color) {
+            ctx.fillStyle = row.color;
+        } else {
+            const g = ctx.createLinearGradient(barX, 0, barX + fillW, 0);
+            g.addColorStop(0, '#f97316');
+            g.addColorStop(1, '#ef4444');
+            ctx.fillStyle = g;
+        }
+        _drawRoundRect(ctx, barX, curY, fillW, barH, 3, ctx.fillStyle, null);
+
+        // Value
+        ctx.textAlign = 'right';
+        ctx.font = '11px system-ui, sans-serif';
+        ctx.fillStyle = row.color ?? '#f87171';
+        ctx.fillText(row.valStr, cssW - pad, curY + barH - 1);
+
+        curY += barH + 10;
+    }
+    curY += 4;
+
+    // Divider
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, curY);
+    ctx.lineTo(cssW - pad, curY);
+    ctx.stroke();
+    curY += 10;
+
+    // ── Ability ────────────────────────────────────────────────────────────────
+    ctx.textAlign = 'left';
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = '#64748b';
+    ctx.fillText('ABILITY', pad, curY);
+    curY += 14;
+
+    ctx.font = `bold 13px system-ui, sans-serif`;
+    ctx.fillStyle = def.color;
+    ctx.fillText(def.ability, pad, curY);
+    curY += 17;
+
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    const linesDrawn = _wrapText(ctx, def.desc, pad, curY, useW, 17, 4);
+    curY += linesDrawn * 17 + 10;
+
+    // Divider
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad, curY);
+    ctx.lineTo(cssW - pad, curY);
+    ctx.stroke();
+    curY += 10;
+
+    // ── Matchups ───────────────────────────────────────────────────────────────
+    if (!hasResults) {
+        ctx.textAlign = 'center';
+        ctx.font = 'italic 12px system-ui, sans-serif';
+        ctx.fillStyle = '#475569';
+        const remainY = curY + (cssH - curY) / 2;
+        ctx.fillText('Run simulation to see matchup data', cssW / 2, remainY);
+        return;
+    }
+
+    const matchups = Object.entries(results[name])
+        .map(([opp, rec]) => {
+            const total = rec.wins + rec.losses + rec.draws;
+            return { opp, winPct: total > 0 ? rec.wins / total : null, total };
+        })
+        .filter(m => m.winPct !== null);
+
+    const best  = [...matchups].sort((a, b) => b.winPct - a.winPct || b.total - a.total).slice(0, 3);
+    const worst = [...matchups].sort((a, b) => a.winPct - b.winPct || b.total - a.total).slice(0, 3);
+
+    const dotR    = 5;
+    const nameWid = Math.min(useW * 0.34, 90);
+    const pctLblW = 36;
+    const mBarX   = pad + dotR * 2 + 6 + nameWid + 6;
+    const mBarMaxW = useW - (dotR * 2 + 6 + nameWid + 6 + pctLblW + 4);
+
+    function drawMatchupSection(label, rows, barColorA, barColorB) {
+        if (curY + 14 > cssH - 4) return;
+        ctx.textAlign = 'left';
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.fillStyle = '#64748b';
+        ctx.fillText(label, pad, curY);
+        curY += 14;
+
+        for (const m of rows) {
+            if (curY + 20 > cssH - 4) break;
+            const oppDef  = baseBalls.find(d => d.name === m.opp);
+            const dotColor = oppDef?.color ?? '#64748b';
+
+            // Color dot
+            ctx.beginPath();
+            ctx.arc(pad + dotR, curY + 7, dotR, 0, Math.PI * 2);
+            ctx.fillStyle = dotColor;
+            ctx.fill();
+
+            // Opponent name (truncated)
+            ctx.textAlign = 'left';
+            ctx.font = '11px system-ui, sans-serif';
+            ctx.fillStyle = '#e2e8f0';
+            let oppName = m.opp;
+            const nameStart = pad + dotR * 2 + 6;
+            while (oppName.length > 1 && ctx.measureText(oppName).width > nameWid) {
+                oppName = oppName.slice(0, -1);
+            }
+            if (oppName !== m.opp) oppName += '…';
+            ctx.fillText(oppName, nameStart, curY + 10);
+
+            // Bar
+            const fillFrac = m.winPct;
+            const fillW    = Math.max(3, fillFrac * mBarMaxW);
+            _drawRoundRect(ctx, mBarX, curY + 3, mBarMaxW, 8, 3, '#1e293b', null);
+            const bg = ctx.createLinearGradient(mBarX, 0, mBarX + fillW, 0);
+            bg.addColorStop(0, barColorA);
+            bg.addColorStop(1, barColorB);
+            _drawRoundRect(ctx, mBarX, curY + 3, fillW, 8, 3, bg, null);
+
+            // Win%
+            ctx.textAlign = 'right';
+            ctx.font = '11px system-ui, sans-serif';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(Math.round(m.winPct * 100) + '%', cssW - pad, curY + 11);
+
+            curY += 22;
+        }
+        curY += 6;
+    }
+
+    drawMatchupSection('BEST MATCHUPS',  best,  '#16a34a', '#4ade80');
+    drawMatchupSection('WORST MATCHUPS', worst, '#dc2626', '#f87171');
 }
 
 function _renderH2H(results, defs) {
