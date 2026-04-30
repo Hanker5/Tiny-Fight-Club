@@ -51,20 +51,39 @@ export function resolveCollision(b1, b2) {
                 let validHitOccurred = false;
 
                 if (b1WeaponHits) {
-                    b2.takeDamage(dmg2, b1);
-                    if (b1.ability === 'Poison') {
-                        b2.poisoned = 3.5;
-                        emitter.emit('ball:poisoned', { ball: b2 });
+                    if (b2.isDecoy) {
+                        b2.decoyHitsRemaining--;
+                        if (b2.decoyHitsRemaining <= 0) {
+                            b2.hp = 0;
+                            emitter.emit('fx:particles', { x: b2.x, y: b2.y, color: b2.color, count: 20, speed: 3 });
+                            emitter.emit('fx:text', { text: 'DECOY!', x: b2.x, y: b2.y - b2.r - 45, color: b2.color });
+                        }
+                    } else {
+                        b2.takeDamage(dmg2, b1);
+                        if (b1.ability === 'Poison') {
+                            b2.poisoned = 3.5;
+                            emitter.emit('ball:poisoned', { ball: b2 });
+                        }
                     }
                     emitter.emit('fx:particles', { x: b1.x + nx * b1.r, y: b1.y + ny * b1.r, color: '#ef4444', count: 8, speed: 4 });
                     validHitOccurred = true;
                 }
 
-                if (b2WeaponHits) {
-                    b1.takeDamage(dmg1, b2);
-                    if (b2.ability === 'Poison') {
-                        b1.poisoned = 3.5;
-                        emitter.emit('ball:poisoned', { ball: b1 });
+                // Decoys are static dummies — they don't deal damage back
+                if (b2WeaponHits && !b2.isDecoy) {
+                    if (b1.isDecoy) {
+                        b1.decoyHitsRemaining--;
+                        if (b1.decoyHitsRemaining <= 0) {
+                            b1.hp = 0;
+                            emitter.emit('fx:particles', { x: b1.x, y: b1.y, color: b1.color, count: 20, speed: 3 });
+                            emitter.emit('fx:text', { text: 'DECOY!', x: b1.x, y: b1.y - b1.r - 45, color: b1.color });
+                        }
+                    } else {
+                        b1.takeDamage(dmg1, b2);
+                        if (b2.ability === 'Poison') {
+                            b1.poisoned = 3.5;
+                            emitter.emit('ball:poisoned', { ball: b1 });
+                        }
                     }
                     emitter.emit('fx:particles', { x: b1.x + nx * b1.r, y: b1.y + ny * b1.r, color: '#ef4444', count: 8, speed: 4 });
                     validHitOccurred = true;

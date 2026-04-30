@@ -2,7 +2,7 @@ export const baseBalls = [
     { name: 'Dash',           player: null,                color: '#06b6d4', ability: 'Dash',         hp: 110, maxHp: 110, r: 56, mass: 1,   speed: 5.2, damage: 11, desc: 'High speed, dashes forward to strike.' },
     { name: 'Titan',          player: null,                color: '#94a3b8', ability: 'Heavy',        hp: 172, maxHp: 172, r: 88, mass: 3,   speed: 2,   damage: 16, desc: 'Massive, high HP, turns slowly.' },
     { name: 'Dracula',        player: null,                color: '#ef4444', ability: 'Vampire',      hp: 100, maxHp: 100, r: 61, mass: 1.2, speed: 3.5, damage: 12, desc: 'Heals 28% of damage dealt by its weapon.' },
-    { name: 'Ninja',          player: null,                color: '#71717a', ability: 'Teleport',     hp: 108, maxHp: 108, r: 58, mass: 0.9, speed: 4.5, damage: 16, desc: 'Periodically teleports behind the opponent.' },
+    { name: 'Ninja',          player: Chris,                color: '#71717a', ability: 'Teleport',     hp: 108, maxHp: 108, r: 58, mass: 0.9, speed: 4.5, damage: 16, desc: 'Periodically teleports behind the opponent.' },
     { name: 'Zerk',           player: null,                color: '#f97316', ability: 'Berserk',      hp: 120, maxHp: 120, r: 67, mass: 1.5, speed: 3.2, damage: 8,  desc: 'Damage and speed increase as HP drops.' },
     { name: 'Paladin',        player: null,                color: '#3b82f6', ability: 'Shield',       hp: 110, maxHp: 110, r: 67, mass: 1.5, speed: 2.8, damage: 10, desc: 'Periodically regenerates a protective shield.' },
     { name: 'Venom',          player: null,                color: '#22c55e', ability: 'Poison',       hp: 118, maxHp: 118, r: 61, mass: 1.1, speed: 3.8, damage: 8,  desc: 'Frontal strikes apply dangerous Damage-Over-Time.' },

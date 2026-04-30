@@ -42,7 +42,8 @@ export function drawBall(ctx, ball) {
     ctx.save();
     ctx.translate(ball.x, ball.y);
 
-    if (ball.intangible > 0) ctx.globalAlpha = 0.4;
+    if (ball.isDecoy) ctx.globalAlpha = 0.55;
+    else if (ball.intangible > 0) ctx.globalAlpha = 0.4;
 
     if (ball.shield > 0) {
         ctx.beginPath();
@@ -128,6 +129,8 @@ export function drawBall(ctx, ball) {
 
     ctx.restore();
     ctx.globalAlpha = 1.0;
+
+    if (ball.isDecoy) return;  // no HP bar or name for decoys
 
     const barW = ball.r * 1.5;
     const hpPct = Math.max(0, ball.hp / ball.maxHp);

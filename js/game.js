@@ -415,11 +415,16 @@ function gameLoop(timestamp) {
 
         updateMatchTimer(state.matchTime, state.suddenDeath);
 
-        // Update all balls — each finds its nearest living opponent
-        for (const ball of state.balls.filter(b => b.hp > 0)) {
-            const opponents = state.balls.filter(b => b.team !== ball.team && b.hp > 0);
-            if (!opponents.length) continue;
-            const nearest = opponents.reduce((a, b) =>
+        // Update all balls — decoys are static dummies, skip their update()
+        for (const ball of state.balls.filter(b => b.hp > 0 && !b.isDecoy)) {
+            const allOpponents = state.balls.filter(b => b.team !== ball.team && b.hp > 0);
+            if (!allOpponents.length) continue;
+
+            // Opponent AI prefers decoys — they act as bait
+            const decoys = allOpponents.filter(b => b.isDecoy);
+            const pool   = decoys.length > 0 ? decoys : allOpponents;
+
+            const nearest = pool.reduce((a, b) =>
                 Math.hypot(b.x - ball.x, b.y - ball.y) < Math.hypot(a.x - ball.x, a.y - ball.y) ? b : a
             );
             ball.update(nearest, VIRTUAL_W, VIRTUAL_H, simDt);
@@ -484,8 +489,9 @@ function gameLoop(timestamp) {
             opponents.forEach(opp => h.update(opp, simDt));
         });
 
-        // Remove minions whose host died
+        // Remove minions whose host died; remove decoys whose Ninja died
         state.balls = state.balls.filter(b => !(b.isMinion && b.master && b.master.hp <= 0));
+        state.balls = state.balls.filter(b => !(b.isDecoy && b.master && b.master.hp <= 0));
 
         // Cleanup
         state.trails        = state.trails.filter(t => t.active);
@@ -529,8 +535,8 @@ function gameLoop(timestamp) {
 
         // Win condition — check by team
         // For fighters with clone ability (hasClone=true), both original AND clone must die
-        const team1Alive = state.balls.filter(b => b.team === 1 && b.hp > 0);
-        const team2Alive = state.balls.filter(b => b.team === 2 && b.hp > 0);
+        const team1Alive = state.balls.filter(b => b.team === 1 && b.hp > 0 && !b.isDecoy);
+        const team2Alive = state.balls.filter(b => b.team === 2 && b.hp > 0 && !b.isDecoy);
 
         // Check if any ball on team has an active (alive) clone
         const team1HasActiveClone = state.balls.some(b => b.team === 1 && b.hasClone && !b.isClone &&

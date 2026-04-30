@@ -26,7 +26,9 @@ export class Ball {
         this.team = 0;
         this.isClone = false;
         this.isMinion = false;
+        this.isDecoy = false;
         this.master = null;
+        this.ninjaDecoy = null;
 
         // All timers in seconds
         // Portal gets a longer startup so Jimbo retreats before first use
@@ -389,6 +391,13 @@ export class Ball {
                 emitter.emit('ability:used', { ball: this, ability: 'Pulse', x: this.x, y: this.y });
 
             } else if (this.ability === 'Teleport' && dist < 350) {
+                const oldX = this.x, oldY = this.y;
+
+                // Expire previous decoy before spawning a new one
+                if (this.ninjaDecoy && this.ninjaDecoy.hp > 0) {
+                    this.ninjaDecoy.hp = 0;
+                }
+
                 emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.color, count: 20, speed: 2 });
                 const tpDistance = enemy.r + this.r + 30;
                 const targetX    = enemy.x - Math.cos(enemy.angle) * tpDistance;
@@ -398,6 +407,24 @@ export class Ball {
                 this.angle       = enemy.angle;
                 this.abilityCooldown = 3.0;
                 emitter.emit('ability:used', { ball: this, ability: 'Teleport', x: this.x, y: this.y });
+
+                // Spawn decoy at old position — acts as bait for the opponent
+                const decoyDef = {
+                    name: this.name, color: this.color, ability: 'none',
+                    hp: 1, maxHp: 1, damage: 0,
+                    r: this.r, mass: this.mass, speed: 0,
+                };
+                const decoy = new Ball(decoyDef);
+                decoy.x    = oldX;
+                decoy.y    = oldY;
+                decoy.angle = this.angle;
+                decoy.team  = this.team;
+                decoy.isDecoy = true;
+                decoy.master  = this;
+                decoy.decoyHitsRemaining = 1;
+                state.balls.push(decoy);
+                this.ninjaDecoy = decoy;
+                emitter.emit('fx:particles', { x: oldX, y: oldY, color: this.color, count: 12, speed: 1 });
 
             } else if (this.ability === 'Shield') {
                 this.shield          = 35;
