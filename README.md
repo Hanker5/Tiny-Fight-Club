@@ -12,7 +12,7 @@ A browser-based 2D tournament simulator where 16 AI-controlled ball fighters com
 |---------|---------|-----------|
 | Dash | Dash | High speed, dashes forward to strike |
 | Titan | Heavy | Massive, high HP, turns slowly |
-| Dracula | Vampire | Heals 28% of damage dealt by its weapon |
+| Dracula | Vampire | Heals 25% of damage dealt by its weapon |
 | Ninja | Teleport | Periodically teleports behind the opponent |
 | Zerk | Berserk | Damage and speed increase as HP drops |
 | Paladin | Shield | Periodically regenerates a protective shield |
@@ -26,7 +26,7 @@ A browser-based 2D tournament simulator where 16 AI-controlled ball fighters com
 | Swarm | Minion | Spawns small homing drones to harass |
 | Thorn | Reflect | Reflects 30% of taken damage back to attacker |
 | Comet | Charge | Builds massive momentum in a straight line |
-| Lil Lethal | Vampire | Heals 28% of damage dealt by its weapon |
+| Lil Lethal | Vampire | Heals 25% of damage dealt by its weapon |
 | Stick Man | Clone | Spawns a clone that flanks from the opposite side |
 | Legion | Summon | Periodically summons small minions |
 | CrazedAngelus | Immunity | Periodically becomes completely immune to all damage |

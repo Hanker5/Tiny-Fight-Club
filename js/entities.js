@@ -91,7 +91,7 @@ export class Ball {
         }
 
         if (source && source.ability === 'Vampire' && !isReflect && this.hp > 0) {
-            const heal = amount * 0.28;
+            const heal = amount * 0.25;
             source.hp = Math.min(source.maxHp, source.hp + heal);
             emitter.emit('fx:text', { text: '+HP', x: source.x, y: source.y - source.r - 45, color: '#10b981' });
         }
