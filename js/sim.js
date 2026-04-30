@@ -302,6 +302,8 @@ let _selectedFighterName = null;
 const MAX_HP  = 172;
 const MAX_SPD = 6.2;
 const MAX_DMG = 19;
+const MAX_MASS = 3;
+const MAX_RADIUS = 88;
 
 const TIER_THRESHOLDS = [
     { label: 'S', min: 55, color: '#f59e0b' },
@@ -728,9 +730,11 @@ function _drawFighterCard(name, results) {
         { label: 'HP',  value: def.hp,     max: MAX_HP,  color: '#22c55e',  valStr: String(def.hp) },
         { label: 'SPD', value: def.speed,  max: MAX_SPD, color: '#06b6d4',  valStr: String(def.speed) },
         { label: 'DMG', value: def.damage, max: MAX_DMG, color: null,       valStr: String(def.damage) },
+        { label: 'MASS', value: def.mass,  max: MAX_MASS, color: '#a78bfa', valStr: String(def.mass) },
+        { label: 'RAD', value: def.r,      max: MAX_RADIUS, color: '#facc15', valStr: String(def.r) },
     ];
-    const labelW = 28;
-    const valW   = 30;
+    const labelW = 36;
+    const valW   = 34;
     const barH   = 7;
     const barX   = pad + labelW + 4;
     const barMaxW = useW - labelW - 4 - valW - 4;
