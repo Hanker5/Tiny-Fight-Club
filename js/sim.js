@@ -20,13 +20,13 @@ class SimEngine {
         this._onProgress    = null;
         this._onComplete    = null;
 
-        // results[nameA][nameB] = { wins, losses } from A's perspective
+        // results[nameA][nameB] = { wins, losses, draws } from A's perspective
         this.results = {};
         for (const a of defs) {
             this.results[a.name] = {};
             for (const b of defs) {
                 if (a.name !== b.name)
-                    this.results[a.name][b.name] = { wins: 0, losses: 0 };
+                    this.results[a.name][b.name] = { wins: 0, losses: 0, draws: 0 };
             }
         }
 
@@ -354,9 +354,9 @@ function _renderResults(results, defs) {
     const rows = defs.map(def => {
         let wins = 0, losses = 0, draws = 0;
         for (const rec of Object.values(results[def.name] ?? {})) {
-            wins   += rec.wins;
-            losses += rec.losses;
-            draws  += rec.draws;
+            wins   += rec.wins ?? 0;
+            losses += rec.losses ?? 0;
+            draws  += rec.draws ?? 0;
         }
         const played  = wins + losses + draws;
         const winRate = played > 0 ? (wins / played * 100) : null;
@@ -375,7 +375,6 @@ function _renderResults(results, defs) {
         <th style="padding:6px 8px">Ability</th>
         <th style="padding:6px 8px;text-align:right">W</th>
         <th style="padding:6px 8px;text-align:right">L</th>
-        <th style="padding:6px 8px;text-align:right">D</th>
         <th style="padding:6px 8px;text-align:right">Win%</th>
         <th style="padding:6px 4px;min-width:80px"></th>
       </tr></thead><tbody>`;
@@ -393,7 +392,6 @@ function _renderResults(results, defs) {
           <td style="padding:5px 8px;color:#818cf8">${r.def.ability}</td>
           <td style="padding:5px 8px;text-align:right;color:#4ade80">${r.wins}</td>
           <td style="padding:5px 8px;text-align:right;color:#f87171">${r.losses}</td>
-          <td style="padding:5px 8px;text-align:right;color:#94a3b8">${r.draws}</td>
           <td style="padding:5px 8px;text-align:right;font-weight:700;color:${color}">${pctStr}</td>
           <td style="padding:5px 4px">
             <div style="height:6px;background:#1e293b;border-radius:3px;overflow:hidden">
