@@ -322,7 +322,7 @@ export class Ball {
 
             let activeSpeed = this.speed;
             if (this.ability === 'Berserk') activeSpeed *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.2;
-            if (this.ability === 'SpeedRush') activeSpeed += Math.min(this.rushStacks * 0.25, 3.0);
+            if (this.ability === 'SpeedRush') activeSpeed += Math.min(this.rushStacks * 0.35, 3.0);
 
             const angleDiff = normalizeAngle(targetAngle - this.angle);
             let turnSpeed = 0.05 * (activeSpeed / 4) * F;

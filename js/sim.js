@@ -20,13 +20,13 @@ class SimEngine {
         this._onProgress    = null;
         this._onComplete    = null;
 
-        // results[nameA][nameB] = { wins, losses, draws } from A's perspective
+        // results[nameA][nameB] = { wins, losses } from A's perspective
         this.results = {};
         for (const a of defs) {
             this.results[a.name] = {};
             for (const b of defs) {
                 if (a.name !== b.name)
-                    this.results[a.name][b.name] = { wins: 0, losses: 0, draws: 0 };
+                    this.results[a.name][b.name] = { wins: 0, losses: 0 };
             }
         }
 
@@ -64,12 +64,9 @@ class SimEngine {
             if (winner === 'A') {
                 this.results[defA.name][defB.name].wins++;
                 this.results[defB.name][defA.name].losses++;
-            } else if (winner === 'B') {
+            } else {
                 this.results[defB.name][defA.name].wins++;
                 this.results[defA.name][defB.name].losses++;
-            } else {
-                this.results[defA.name][defB.name].draws++;
-                this.results[defB.name][defA.name].draws++;
             }
             this.done++;
             this._onProgress(this.done, this.total);
@@ -136,9 +133,8 @@ class SimEngine {
         const runChunk = () => {
             for (let i = 0; i < STEPS_PER_CHUNK; i++) {
                 if (stepsRun >= MAX_STEPS) {
-                    const ratioA = ballA.hp / ballA.maxHp;
-                    const ratioB = ballB.hp / ballB.maxHp;
-                    onDone(Math.abs(ratioA - ratioB) < 0.05 ? 'DRAW' : ratioA > ratioB ? 'A' : 'B');
+                    // Sudden death ensures a winner — higher HP wins
+                    onDone(ballA.hp >= ballB.hp ? 'A' : 'B');
                     return;
                 }
 
@@ -167,7 +163,7 @@ class SimEngine {
                 }
             }
 
-            if (this._aborted) { onDone('DRAW'); return; }
+            if (this._aborted) { onDone('A'); return; }
             setTimeout(runChunk, 0);
         };
 
