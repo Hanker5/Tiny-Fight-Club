@@ -96,14 +96,14 @@ function showMainMenu() {
     state.suddenDeath = false;
     state.shrinkInset = 0;
 
-    const quickBtn = document.getElementById('quick-fight-btn');
-    quickBtn.innerText = 'Quick Fight';
-    quickBtn.onclick = openQuickFightPicker;
-    quickBtn.classList.remove('hidden');
     const menuBtn = document.getElementById('menu-btn');
     if (menuBtn) menuBtn.classList.add('hidden');
 
     showOverlay('Tiny Fight Club', 'Welcome to the arena.', 'Start Tournament', initTournament);
+    const quickBtn = document.getElementById('quick-fight-btn');
+    quickBtn.innerText = 'Quick Fight';
+    quickBtn.onclick = openQuickFightPicker;
+    quickBtn.classList.remove('hidden');
     const simBtn = document.getElementById('sim-btn');
     if (simBtn) simBtn.classList.remove('hidden');
 }

@@ -69,7 +69,7 @@ export function showOverlay(title, desc, btnText, action, color = 'white') {
     btn.innerText = btnText;
     btn.onclick = action;
     const quickBtn = document.getElementById('quick-fight-btn');
-    if (quickBtn) quickBtn.classList.remove('hidden');
+    if (quickBtn) quickBtn.classList.add('hidden');
     const simBtn = document.getElementById('sim-btn');
     if (simBtn) simBtn.classList.add('hidden');
     overlay.classList.remove('hidden');
