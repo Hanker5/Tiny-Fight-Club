@@ -119,6 +119,11 @@ export class Ball {
     update(enemy, width, height, dt) {
         const F = dt * 60;
 
+        if (this.isDecoy) {
+            this.decoyLifetime -= dt;
+            if (this.decoyLifetime <= 0) this.hp = 0;
+        }
+
         if (this.abilityCooldown > 0) {
             if (this.ability === 'Shield' && this.shield > 0) {
                 // paused
@@ -422,6 +427,7 @@ export class Ball {
                 decoy.isDecoy = true;
                 decoy.master  = this;
                 decoy.decoyHitsRemaining = 1;
+                decoy.decoyLifetime = 2;
                 state.balls.push(decoy);
                 this.ninjaDecoy = decoy;
                 emitter.emit('fx:particles', { x: oldX, y: oldY, color: this.color, count: 12, speed: 1 });
