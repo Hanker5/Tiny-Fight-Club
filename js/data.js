@@ -26,5 +26,6 @@ export const baseBalls = [
     { name: 'Jimbo',          player: 'Henry',             color: '#fb923c', ability: 'Portal',       hp: 115, maxHp: 115, r: 58, mass: 1.1, speed: 4.0, damage: 11, desc: 'Creates a pair of portals — charges through one and emerges behind the enemy. Can return through the portal to escape.' },
     { name: 'TinyDancer',     player: 'Elisa',             color: '#f472b6', ability: 'Dash',         hp: 108, maxHp: 108, r: 56, mass: 1.0, speed: 5.5, damage: 11, desc: 'High speed, dashes forward to strike.' },
     { name: 'Black Panther',  player: 'ESTIME',            color: '#232326', ability: 'BlackPanther', hp: 87,  maxHp: 87,  r: 50, mass: 0.8, speed: 6.2, damage: 19, desc: 'High speed, high damage. Master flanker — attacks from the side, occasionally commits to a direct strike.' },
-    { name: 'KayeeK',         player: 'Esther',            color: '#b31aa6', ability: 'Phase',        hp: 105, maxHp: 105, r: 56, mass: 0.9, speed: 5,   damage: 13, desc: 'Periodically becomes intangible to attacks.' }
+    { name: 'KayeeK',         player: 'Esther',            color: '#b31aa6', ability: 'Phase',        hp: 105, maxHp: 105, r: 56, mass: 0.9, speed: 5,   damage: 13, desc: 'Periodically becomes intangible to attacks.' },
+    { name: 'Snickerdoodle',  player: 'Alyce',             color: '#D4A574', ability: 'Hex',          hp: 100, maxHp: 100, r: 60, mass: 1.0, speed: 3.5, damage: 8,  desc: 'Throws a crimson hex zone at the enemy. Enemies inside are slowed, pulled to the center, and scorched for 3 seconds.' }
 ];

@@ -66,6 +66,9 @@ export class Ball {
         this.momentumArmor = 0;
         this.boomerangOut = false;
 
+        // Hex slow (Snickerdoodle)
+        this.hexed = 0;
+
         // Clone (Stick Man)
         this.hasClone = false;
 
@@ -138,6 +141,7 @@ export class Ball {
         if (this.intangible  > 0) this.intangible   -= dt;
         if (this.pulseVisual > 0) this.pulseVisual   -= dt;
         if (this.flash       > 0) this.flash         -= dt;
+        if (this.hexed       > 0) this.hexed         -= dt;
 
         // Momentum armor decay
         if (this.momentumArmor > 0) {
@@ -338,6 +342,7 @@ export class Ball {
             let activeSpeed = this.speed;
             if (this.ability === 'Berserk') activeSpeed *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.2;
             if (this.ability === 'SpeedRush' || this.stolenAbilities.includes('SpeedRush')) activeSpeed += Math.min(this.rushStacks * 0.4, 3.0);
+            if (this.hexed > 0) activeSpeed *= 0.5;
 
             const angleDiff = normalizeAngle(targetAngle - this.angle);
             let turnSpeed = 0.05 * (activeSpeed / 4) * F;
@@ -591,6 +596,11 @@ export class Ball {
                     this.abilityCooldown = 1.4;
                     emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#6b21a8', count: 8, speed: 4 });
                 }
+
+            } else if (this.ability === 'Hex' && dist < 650) {
+                state.hexZones.push(new HexZone(enemy.x, enemy.y, this));
+                this.abilityCooldown = 7.0;
+                emitter.emit('ability:used', { ball: this, ability: 'Hex', x: this.x, y: this.y });
             }
         }
 
@@ -1010,6 +1020,37 @@ export class Projectile {
 
         if (Math.random() < 0.5 * dt * 60) {
             emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.color, count: 1, speed: 0.5, size: 2 });
+        }
+    }
+}
+
+export class HexZone {
+    constructor(x, y, source) {
+        this.x = x; this.y = y; this.source = source;
+        this.r = 100;
+        this.active = true;
+        this.life = 3.0;
+        this.tickTimer = 0;
+        this.damage = 6;
+    }
+    update(enemy, dt) {
+        this.life -= dt;
+        if (this.life <= 0) { this.active = false; return; }
+        if (enemy.intangible > 0 || enemy.immuneActive) return;
+        const dx = enemy.x - this.x, dy = enemy.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < enemy.r + this.r) {
+            enemy.hexed = 0.15;
+            const nx = (this.x - enemy.x) / (dist || 1);
+            const ny = (this.y - enemy.y) / (dist || 1);
+            enemy.vx += nx * 90 * dt;
+            enemy.vy += ny * 90 * dt;
+            this.tickTimer += dt;
+            if (this.tickTimer >= 0.5) {
+                this.tickTimer -= 0.5;
+                enemy.takeDamage(this.damage, this.source);
+                emitter.emit('fx:particles', { x: enemy.x, y: enemy.y, color: '#dc143c', count: 6, speed: 3, size: 3 });
+            }
         }
     }
 }

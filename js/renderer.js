@@ -127,6 +127,33 @@ export function drawBall(ctx, ball) {
     ctx.strokeStyle = '#020617';
     ctx.stroke();
 
+    if (ball.name === 'Snickerdoodle') {
+        ctx.fillStyle = '#8B4513';
+        // Freckles: more spread out and varied positions
+        const freckles = [
+            { x: -ball.r * 0.55, y: -ball.r * 0.45 },
+            { x:  ball.r * 0.48, y: -ball.r * 0.40 },
+            { x: -ball.r * 0.32, y:  ball.r * 0.22 },
+            { x:  ball.r * 0.62, y:  ball.r * 0.12 },
+            { x: -ball.r * 0.65, y: -ball.r * 0.18 },
+            { x:  ball.r * 0.25, y:  ball.r * 0.35 },
+            { x: -ball.r * 0.18, y: -ball.r * 0.52 },
+            { x:  ball.r * 0.68, y:  ball.r * 0.28 },
+            { x: -ball.r * 0.68, y:  ball.r * 0.38 },
+            { x:  ball.r * 0.12, y: -ball.r * 0.28 },
+            { x: -ball.r * 0.38, y:  ball.r * 0.08 },
+            { x:  ball.r * 0.35, y:  ball.r * 0.42 },
+            { x: -ball.r * 0.08, y:  ball.r * 0.45 },
+            { x:  ball.r * 0.55, y: -ball.r * 0.08 },
+        ];
+        const fr = Math.max(2, ball.r * 0.055);
+        freckles.forEach(f => {
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, fr, 0, Math.PI * 2);
+            ctx.fill();
+        });
+    }
+
     ctx.restore();
     ctx.globalAlpha = 1.0;
 
@@ -182,6 +209,32 @@ export function drawHazard(ctx, hazard) {
     }
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+}
+
+export function drawHexZone(ctx, zone) {
+    const lifeFrac = zone.life / 3.0;
+    const alpha = Math.min(1, lifeFrac);
+    const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 150);
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.25;
+    ctx.beginPath();
+    ctx.arc(zone.x, zone.y, zone.r, 0, Math.PI * 2);
+    ctx.fillStyle = '#8b0000';
+    ctx.fill();
+    ctx.globalAlpha = alpha * pulse;
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#dc143c';
+    ctx.shadowColor = '#dc143c';
+    ctx.shadowBlur = 16;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = alpha * 0.4;
+    ctx.beginPath();
+    ctx.arc(zone.x, zone.y, zone.r * 0.35, 0, Math.PI * 2);
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.restore();
 }

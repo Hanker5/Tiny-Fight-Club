@@ -13,6 +13,8 @@ export const state = {
     particles: [],
     floatingTexts: [],
     hazards: [],
+    hexZones: [],
+    hexProjectiles: [],
     trails: [],
     boomerangs: [],
     portals: [],

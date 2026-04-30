@@ -118,6 +118,7 @@ class SimEngine {
         state.particles     = [];
         state.floatingTexts = [];
         state.hazards       = [];
+        state.hexZones      = [];
         state.trails        = [];
         state.boomerangs    = [];
         state.portals       = [];
@@ -254,6 +255,12 @@ class SimEngine {
             opponents.forEach(opp => h.update(opp, dt));
         });
 
+        // Hex zones
+        state.hexZones.forEach(hz => {
+            const opponents = state.balls.filter(b => b.team !== hz.source.team && b.hp > 0);
+            opponents.forEach(opp => hz.update(opp, dt));
+        });
+
         // Fix: immuneActive is reset via a real-clock setTimeout(1500ms) in entities.js,
         // which never fires during a fast sim. Expire it using sim time (1.5s) instead.
         for (const ball of state.balls) {
@@ -278,6 +285,7 @@ class SimEngine {
         state.portals       = state.portals.filter(p => p.active);
         state.projectiles   = state.projectiles.filter(p => p.active);
         state.hazards       = state.hazards.filter(h => h.active);
+        state.hexZones      = state.hexZones.filter(hz => hz.active);
 
         // Clear visual-only arrays (no game effect, prevent unbounded growth)
         state.particles     = [];
