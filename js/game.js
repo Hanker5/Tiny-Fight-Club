@@ -6,11 +6,11 @@ import { createParticles, createConfetti } from './fx.js';
 import { emitter } from './events.js';
 import { normalizeAngle } from './utils.js';
 import {
-    drawBall, drawHazard, drawHexZone, drawProjectile,
+    drawBall, drawHazard, drawHexZone, drawHexProjectile, drawProjectile,
     drawParticle, drawFloatingText,
     drawGrappleLine, drawArenaBorder, drawConfetti,
     drawObstacles, drawSuddenDeathZone,
-    drawTrail, drawBoomerang, drawPortal
+    drawTrail, drawBoomerang, drawPortal, drawOrbitalShield
 } from './renderer.js';
 // ui.js: imported for side-effects (event subscriptions) + direct overlay/render calls
 import {
@@ -89,8 +89,10 @@ function showMainMenu() {
     state.floatingTexts = [];
     state.hazards = [];
     state.hexZones = [];
+    state.hexProjectiles = [];
     state.trails = [];
     state.boomerangs = [];
+    state.shields = [];
     state.portals = [];
     state.confetti = [];
     state.matchTime = 0;
@@ -201,8 +203,10 @@ function startNextMatch() {
     state.floatingTexts = [];
     state.hazards       = [];
     state.hexZones      = [];
+    state.hexProjectiles = [];
     state.trails        = [];
     state.boomerangs    = [];
+    state.shields       = [];
     state.portals       = [];
     state.confetti      = [];
     state.obstacles     = OBSTACLES;
@@ -273,8 +277,10 @@ export function startCustomMatch(def1, def2) {
     state.floatingTexts = [];
     state.hazards       = [];
     state.hexZones      = [];
+    state.hexProjectiles = [];
     state.trails        = [];
     state.boomerangs    = [];
+    state.shields       = [];
     state.portals       = [];
     state.confetti      = [];
     state.obstacles     = OBSTACLES;
@@ -474,6 +480,15 @@ function gameLoop(timestamp) {
             blade.update(simDt);
         });
 
+        // Shield Burst — retarget then update
+        state.shields.forEach(s => {
+            if (s.target && s.target.hp <= 0) {
+                const alt = state.balls.find(b => b.team !== s.source.team && b.hp > 0);
+                if (alt) s.target = alt; else { s.active = false; return; }
+            }
+            s.update(simDt);
+        });
+
         // Projectile retargeting and update
         state.projectiles.forEach(p => {
             if (p.target && p.target.hp <= 0) {
@@ -498,6 +513,9 @@ function gameLoop(timestamp) {
             opponents.forEach(opp => hz.update(opp, simDt));
         });
 
+        // Hex projectile update — travels to target, spawns zone on impact or expiry
+        state.hexProjectiles.forEach(p => p.update(simDt, state.balls, VIRTUAL_W, VIRTUAL_H));
+
         // Remove minions whose host died; remove decoys whose Ninja died
         state.balls = state.balls.filter(b => !(b.isMinion && b.master && b.master.hp <= 0));
         state.balls = state.balls.filter(b => !(b.isDecoy && b.master && b.master.hp <= 0));
@@ -505,12 +523,14 @@ function gameLoop(timestamp) {
         // Cleanup
         state.trails        = state.trails.filter(t => t.active);
         state.boomerangs    = state.boomerangs.filter(b => b.active);
+        state.shields       = state.shields.filter(s => s.active);
         state.portals       = state.portals.filter(p => p.active);
         state.projectiles   = state.projectiles.filter(p => p.active);
         state.particles     = state.particles.filter(p => p.life > 0);
         state.floatingTexts = state.floatingTexts.filter(ft => ft.life > 0);
         state.hazards       = state.hazards.filter(h => h.active);
         state.hexZones      = state.hexZones.filter(hz => hz.active);
+        state.hexProjectiles = state.hexProjectiles.filter(p => p.active);
 
         // Draw
         ctx.save();
@@ -524,6 +544,7 @@ function gameLoop(timestamp) {
         drawTrail(ctx, state.trails);
         state.hazards.forEach(h => drawHazard(ctx, h));
         state.hexZones.forEach(hz => drawHexZone(ctx, hz));
+        state.hexProjectiles.forEach(p => drawHexProjectile(ctx, p));
         // Portals drawn beneath balls
         state.portals.forEach(p => {
             drawPortal(ctx, p.ax, p.ay, p.source.color, p.life / 7.0);
@@ -536,6 +557,7 @@ function gameLoop(timestamp) {
 
         state.projectiles.forEach(p => drawProjectile(ctx, p));
         state.boomerangs.forEach(b => drawBoomerang(ctx, b));
+        state.shields.forEach(s => drawOrbitalShield(ctx, s));
         state.particles.forEach(p => drawParticle(ctx, p));
         state.balls.filter(b => b.hp > 0).forEach(b => drawBall(ctx, b));
         state.floatingTexts.forEach(ft => drawFloatingText(ctx, ft));
@@ -681,8 +703,8 @@ export function pauseForSim() {
 export function resumeFromSim() {
     state.balls = []; state.ball1 = null; state.ball2 = null;
     state.projectiles = []; state.particles = []; state.floatingTexts = [];
-    state.hazards = []; state.hexZones = []; state.trails = []; state.boomerangs = [];
-    state.portals = []; state.confetti = []; state.obstacles = [];
+    state.hazards = []; state.hexZones = []; state.hexProjectiles = []; state.trails = []; state.boomerangs = [];
+    state.shields = []; state.portals = []; state.confetti = []; state.obstacles = [];
     state.matchTime = 0; state.suddenDeath = false; state.shrinkInset = 0;
     state.gameState = 'BRACKET';
     simPaused = false;

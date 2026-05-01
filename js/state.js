@@ -17,6 +17,7 @@ export const state = {
     hexProjectiles: [],
     trails: [],
     boomerangs: [],
+    shields: [],
     portals: [],
     confetti: [],
     matchTime: 0,

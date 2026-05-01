@@ -127,6 +127,19 @@ export function drawBall(ctx, ball) {
     ctx.strokeStyle = '#020617';
     ctx.stroke();
 
+    if (ball.name === 'Bombastic Bubbles' && ball.flash <= 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.fillStyle = 'rgba(173, 216, 230, 0.45)';
+        ctx.rotate(Math.PI * 0.22);
+        const sw = ball.r * 0.32, ss = ball.r * 0.72;
+        for (let i = -1; i <= 1; i++)
+            ctx.fillRect(-ball.r * 1.5, i * ss - sw / 2, ball.r * 3, sw);
+        ctx.restore();
+    }
+
     if (ball.name === 'Snickerdoodle') {
         ctx.fillStyle = '#8B4513';
         // Freckles: more spread out and varied positions
@@ -236,6 +249,22 @@ export function drawHexZone(ctx, zone) {
     ctx.strokeStyle = '#ff6b6b';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+    ctx.restore();
+}
+
+export function drawHexProjectile(ctx, proj) {
+    const pulse = 0.7 + 0.3 * Math.sin(performance.now() / 80);
+    ctx.save();
+    ctx.shadowColor = '#dc143c';
+    ctx.shadowBlur = 18 * pulse;
+    ctx.beginPath();
+    ctx.arc(proj.x, proj.y, proj.r, 0, Math.PI * 2);
+    ctx.fillStyle = '#dc143c';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.stroke();
+    ctx.shadowBlur = 0;
     ctx.restore();
 }
 
@@ -365,6 +394,78 @@ export function drawBoomerang(ctx, blade) {
     ctx.fill();
 
     ctx.restore();
+}
+
+export function drawOrbitalShield(ctx, shield) {
+    if (shield.phase === 'PROJECTILE') {
+        // Flying disc after release
+        ctx.save();
+        ctx.translate(shield.x, shield.y);
+        ctx.shadowColor = '#ADD8E6';
+        ctx.shadowBlur  = 18;
+        ctx.beginPath();
+        ctx.arc(0, 0, shield.r, 0, Math.PI * 2);
+        ctx.fillStyle   = '#ADD8E6';
+        ctx.globalAlpha = 0.85;
+        ctx.fill();
+        ctx.lineWidth   = 2;
+        ctx.strokeStyle = '#5bb3cc';
+        ctx.globalAlpha = 0.9;
+        ctx.stroke();
+        ctx.restore();
+        ctx.globalAlpha = 1.0;
+        return;
+    }
+
+    // Orbiting arc — annular sector centered on the source ball
+    const hpFrac      = Math.max(0, shield.hp / shield.maxHp);
+    const charge      = Math.min(1, shield.chargeTime / shield.chargeDuration);
+    const halfThick   = 2 + 8 * charge;          // grows from 2px to 10px each side
+    const halfAngle   = Math.PI / 5 - 0.04;      // 36° minus small gap
+    const innerR      = shield.orbitRadius - halfThick;
+    const outerR      = shield.orbitRadius + halfThick;
+    const startA      = shield.orbitAngle - halfAngle;
+    const endA        = shield.orbitAngle + halfAngle;
+    const fillAlpha   = (0.2 + 0.45 * charge) * hpFrac + 0.05;
+    const strokeAlpha = (0.3 + 0.6 * charge) * hpFrac + 0.1;
+
+    ctx.save();
+    ctx.translate(shield.source.x, shield.source.y);
+    ctx.shadowColor = '#C8A0DE';
+    ctx.shadowBlur  = (4 + 10 * charge) * hpFrac;
+
+    // Filled annular sector (outer arc → inner arc reversed → close)
+    ctx.beginPath();
+    ctx.arc(0, 0, outerR, startA, endA);
+    ctx.arc(0, 0, innerR, endA, startA, true);
+    ctx.closePath();
+    ctx.fillStyle   = `rgba(200, 160, 222, ${fillAlpha})`;
+    ctx.globalAlpha = 1.0;
+    ctx.fill();
+
+    // Outer edge stroke
+    ctx.beginPath();
+    ctx.arc(0, 0, outerR, startA, endA);
+    ctx.strokeStyle = `rgba(200, 160, 222, ${strokeAlpha})`;
+    ctx.lineWidth   = 1.5 + charge;
+    ctx.stroke();
+
+    // Inner edge stroke
+    ctx.beginPath();
+    ctx.arc(0, 0, innerR, startA, endA);
+    ctx.strokeStyle = `rgba(200, 160, 222, ${strokeAlpha * 0.75})`;
+    ctx.lineWidth   = 1 + charge * 0.5;
+    ctx.stroke();
+
+    // Light-blue centre line highlight
+    ctx.beginPath();
+    ctx.arc(0, 0, (innerR + outerR) / 2, startA, endA);
+    ctx.strokeStyle = `rgba(173, 216, 230, ${0.15 + 0.45 * charge * hpFrac})`;
+    ctx.lineWidth   = 1.5 + 1.5 * charge;
+    ctx.stroke();
+
+    ctx.restore();
+    ctx.globalAlpha = 1.0;
 }
 
 export function drawProjectile(ctx, proj) {

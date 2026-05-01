@@ -119,8 +119,10 @@ class SimEngine {
         state.floatingTexts = [];
         state.hazards       = [];
         state.hexZones      = [];
+        state.hexProjectiles = [];
         state.trails        = [];
         state.boomerangs    = [];
+        state.shields       = [];
         state.portals       = [];
         state.confetti      = [];
         state.obstacles     = OBSTACLES;
@@ -240,6 +242,15 @@ class SimEngine {
             blade.update(dt);
         });
 
+        // Shield Burst
+        state.shields.forEach(s => {
+            if (s.target && s.target.hp <= 0) {
+                const alt = state.balls.find(b => b.team !== s.source.team && b.hp > 0);
+                if (alt) s.target = alt; else { s.active = false; return; }
+            }
+            s.update(dt);
+        });
+
         // Projectiles — game.js:319-325
         state.projectiles.forEach(p => {
             if (p.target && p.target.hp <= 0) {
@@ -260,6 +271,9 @@ class SimEngine {
             const opponents = state.balls.filter(b => b.team !== hz.source.team && b.hp > 0);
             opponents.forEach(opp => hz.update(opp, dt));
         });
+
+        // Hex projectiles
+        state.hexProjectiles.forEach(p => p.update(dt, state.balls, VIRTUAL_W, VIRTUAL_H));
 
         // Fix: immuneActive is reset via a real-clock setTimeout(1500ms) in entities.js,
         // which never fires during a fast sim. Expire it using sim time (1.5s) instead.
@@ -282,10 +296,12 @@ class SimEngine {
         // Array prune — game.js:340-346
         state.trails        = state.trails.filter(t => t.active);
         state.boomerangs    = state.boomerangs.filter(b => b.active);
+        state.shields       = state.shields.filter(s => s.active);
         state.portals       = state.portals.filter(p => p.active);
         state.projectiles   = state.projectiles.filter(p => p.active);
         state.hazards       = state.hazards.filter(h => h.active);
         state.hexZones      = state.hexZones.filter(hz => hz.active);
+        state.hexProjectiles = state.hexProjectiles.filter(p => p.active);
 
         // Clear visual-only arrays (no game effect, prevent unbounded growth)
         state.particles     = [];

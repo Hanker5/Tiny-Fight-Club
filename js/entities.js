@@ -66,6 +66,10 @@ export class Ball {
         this.momentumArmor = 0;
         this.boomerangOut = false;
 
+        // Shield Burst (Bombastic Bubbles)
+        this.shieldBurstTimer  = 0;
+        this.shieldBurstActive = false;
+
         // Hex slow (Snickerdoodle)
         this.hexed = 0;
 
@@ -81,6 +85,26 @@ export class Ball {
     takeDamage(amount, source, isReflect = false) {
         if (this.intangible > 0) return;
         if (this.immuneActive) return;
+
+        // Shield Burst: an orbiting arc blocks hits from the attacker's direction
+        if (source && this.shieldBurstActive && state.shields.length > 0) {
+            const attackerAngle = Math.atan2(source.y - this.y, source.x - this.x);
+            const blocker = state.shields.find(s =>
+                s.source === this && s.active && s.phase === 'ORBITING' &&
+                Math.abs(normalizeAngle(s.orbitAngle - attackerAngle)) < Math.PI / 5
+            );
+            if (blocker) {
+                blocker.hp -= amount;
+                emitter.emit('fx:particles', { x: blocker.x, y: blocker.y, color: '#C8A0DE', count: 10, speed: 4 });
+                if (blocker.hp <= 0) {
+                    blocker.active = false;
+                    blocker._breakEffect();
+                    const remaining = state.shields.filter(s => s.source === this && s.active && s.phase === 'ORBITING');
+                    if (!remaining.length) this.shieldBurstActive = false;
+                }
+                return;
+            }
+        }
 
         // Momentum armor reduction (Ball Slayer)
         if (this.momentumArmor > 0) {
@@ -142,6 +166,16 @@ export class Ball {
         if (this.pulseVisual > 0) this.pulseVisual   -= dt;
         if (this.flash       > 0) this.flash         -= dt;
         if (this.hexed       > 0) this.hexed         -= dt;
+
+        if (this.shieldBurstTimer > 0) {
+            this.shieldBurstTimer -= dt;
+            if (this.shieldBurstTimer <= 0 && this.shieldBurstActive) {
+                state.shields
+                    .filter(s => s.source === this && s.active && s.phase === 'ORBITING')
+                    .forEach(s => s.release());
+                this.shieldBurstActive = false;
+            }
+        }
 
         // Momentum armor decay
         if (this.momentumArmor > 0) {
@@ -269,8 +303,19 @@ export class Ball {
                     this.behaviorState = (wantsAbsorb && dist < 175) ? 'AGGRESSIVE'
                                        : wantsAbsorb ? 'FLANKING'
                                        : 'AGGRESSIVE';
+                } else if (this.ability === 'Hex') {
+                    if (abilityReady) this.behaviorState = dist < 500 ? 'SNIPING' : 'FLANKING';
+                    else this.behaviorState = dist < 400 ? 'RETREATING' : 'FLANKING';
                 } else if (this.ability === 'BlackPanther') {
                     this.behaviorState = hpRatio > 0.6 && Math.random() > 0.4 ? 'AGGRESSIVE' : 'FLANKING';
+                } else if (this.ability === 'ShieldBurst') {
+                    if (this.shieldBurstActive) {
+                        this.behaviorState = dist < 300 ? 'RETREATING' : 'FLANKING';
+                    } else if (abilityReady) {
+                        this.behaviorState = 'AGGRESSIVE';
+                    } else {
+                        this.behaviorState = dist < 350 ? 'RETREATING' : 'FLANKING';
+                    }
                 } else {
                     if (hpRatio < 0.25 && enemyHpRatio > 0.5) this.behaviorState = 'RETREATING';
                     else if (this.hp > enemy.hp) this.behaviorState = 'AGGRESSIVE';
@@ -482,7 +527,7 @@ export class Ball {
 
             } else if (this.ability === 'Absorb' && !this.hasAbsorbed && dist < 175
                     && enemy.ability && this.stolenAbilities.length < 3) {
-                const UNSTEALABLE = new Set(['Absorb']);
+                const UNSTEALABLE = new Set(['Absorb', 'ShieldBurst']);
                 const raw = enemy.def ? enemy.def.ability : enemy.ability;
                 const toSteal = (raw && !UNSTEALABLE.has(raw)) ? raw : null;
                 if (toSteal && !this.stolenAbilities.includes(toSteal)) {
@@ -597,10 +642,21 @@ export class Ball {
                     emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#6b21a8', count: 8, speed: 4 });
                 }
 
-            } else if (this.ability === 'Hex' && dist < 650) {
-                state.hexZones.push(new HexZone(enemy.x, enemy.y, this));
+            } else if (this.ability === 'Hex' && dist < 700
+                    && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.5) {
+                state.hexProjectiles.push(new HexProjectile(this.x, this.y, enemy.x, enemy.y, this));
                 this.abilityCooldown = 7.0;
                 emitter.emit('ability:used', { ball: this, ability: 'Hex', x: this.x, y: this.y });
+
+            } else if (this.ability === 'ShieldBurst' && !this.shieldBurstActive) {
+                for (let i = 0; i < 5; i++) {
+                    state.shields.push(new OrbitalShield(this, (i / 5) * Math.PI * 2, enemy));
+                }
+                this.shieldBurstActive = true;
+                this.shieldBurstTimer  = 5.0;
+                this.abilityCooldown   = 8.5;
+                emitter.emit('ability:used', { ball: this, ability: 'ShieldBurst', x: this.x, y: this.y });
+                emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#C8A0DE', count: 25, speed: 4 });
             }
         }
 
@@ -967,6 +1023,80 @@ export class BoomerangBlade {
     }
 }
 
+export class OrbitalShield {
+    constructor(source, orbitAngle, target) {
+        this.source      = source;
+        this.target      = target;
+        this.orbitAngle  = orbitAngle;
+        this.orbitRadius = source.r + 32;
+        this.orbitSpeed  = 0.8;
+        this.r           = 13;
+        this.hp          = 13;
+        this.maxHp       = 13;
+        this.phase       = 'ORBITING';
+        this.active      = true;
+        this.vx          = 0;
+        this.vy          = 0;
+        this.damage        = 22;
+        this.hitCooldown   = 0;
+        this.life          = 8.0;
+        this.chargeTime    = 0;
+        this.chargeDuration = 5.0;
+        this.x = source.x + Math.cos(orbitAngle) * this.orbitRadius;
+        this.y = source.y + Math.sin(orbitAngle) * this.orbitRadius;
+    }
+
+    release() {
+        if (this.phase !== 'ORBITING') return;
+        this.phase = 'PROJECTILE';
+        const angle = Math.atan2(this.y - this.source.y, this.x - this.source.x);
+        const speed = 9;
+        this.vx   = Math.cos(angle) * speed;
+        this.vy   = Math.sin(angle) * speed;
+        this.life = 3.0;
+        emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#ADD8E6', count: 10, speed: 3 });
+    }
+
+    update(dt) {
+        this.life -= dt;
+        if (this.life <= 0) { this.active = false; return; }
+        if (this.hitCooldown > 0) this.hitCooldown -= dt;
+
+        if (this.phase === 'ORBITING') {
+            this.chargeTime = Math.min(this.chargeDuration, this.chargeTime + dt);
+            this.orbitAngle += this.orbitSpeed * dt;
+            this.x = this.source.x + Math.cos(this.orbitAngle) * this.orbitRadius;
+            this.y = this.source.y + Math.sin(this.orbitAngle) * this.orbitRadius;
+
+            if (this.source.hp <= 0) { this.release(); return; }
+            // Damage interception handled in Ball.takeDamage() via angle check
+        } else {
+            this.x += this.vx * dt * 60;
+            this.y += this.vy * dt * 60;
+
+            if (this.target && this.target.hp > 0 && this.hitCooldown <= 0) {
+                const d = Math.hypot(this.target.x - this.x, this.target.y - this.y);
+                if (d < this.target.r + this.r && this.target.intangible <= 0 && !this.target.immuneActive) {
+                    this.target.takeDamage(this.damage, this.source);
+                    this.active = false;
+                    emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#ADD8E6', count: 16, speed: 5 });
+                    return;
+                }
+            }
+
+            if (Math.random() < 0.4 * dt * 60) {
+                emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#ADD8E6', count: 1, speed: 0.5, size: 2 });
+            }
+        }
+    }
+
+    _breakEffect() {
+        emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#C8A0DE', count: 14, speed: 5 });
+        emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#ADD8E6', count: 6,  speed: 3 });
+        emitter.emit('fx:text',      { text: 'BREAK!', x: this.x, y: this.y - 20, color: '#C8A0DE' });
+    }
+}
+
 export class Projectile {
     constructor(x, y, target, source, startAngle, homing = true, speed = 8, damage = 10) {
         this.x = x; this.y = y;
@@ -990,6 +1120,30 @@ export class Projectile {
         const dx   = this.target.x - this.x;
         const dy   = this.target.y - this.y;
         const dist = Math.hypot(dx, dy);
+
+        // Check if an orbiting shield arc blocks this projectile before the ball itself
+        if (this.target.shieldBurstActive && state.shields.length > 0) {
+            // angle FROM target center TO projectile position
+            const projAngle = Math.atan2(-dy, -dx);
+            const hitShield = state.shields.find(s =>
+                s.source === this.target && s.active && s.phase === 'ORBITING' &&
+                dist > s.orbitRadius - 10 - this.r &&
+                dist < s.orbitRadius + 10 + this.r &&
+                Math.abs(normalizeAngle(s.orbitAngle - projAngle)) < Math.PI / 5
+            );
+            if (hitShield) {
+                hitShield.hp -= this.damage;
+                this.active = false;
+                emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#C8A0DE', count: 12, speed: 3 });
+                if (hitShield.hp <= 0) {
+                    hitShield.active = false;
+                    hitShield._breakEffect();
+                    const orbitingLeft = state.shields.filter(s => s.source === this.target && s.active && s.phase === 'ORBITING');
+                    if (!orbitingLeft.length) this.target.shieldBurstActive = false;
+                }
+                return;
+            }
+        }
 
         if (dist < this.target.r + this.r && this.target.intangible <= 0 && !this.target.immuneActive) {
             this.target.takeDamage(this.damage, this.source);
@@ -1027,11 +1181,11 @@ export class Projectile {
 export class HexZone {
     constructor(x, y, source) {
         this.x = x; this.y = y; this.source = source;
-        this.r = 100;
+        this.r = 150;
         this.active = true;
         this.life = 3.0;
         this.tickTimer = 0;
-        this.damage = 6;
+        this.damage = 8;
     }
     update(enemy, dt) {
         this.life -= dt;
@@ -1050,6 +1204,60 @@ export class HexZone {
                 this.tickTimer -= 0.5;
                 enemy.takeDamage(this.damage, this.source);
                 emitter.emit('fx:particles', { x: enemy.x, y: enemy.y, color: '#dc143c', count: 6, speed: 3, size: 3 });
+            }
+        }
+    }
+}
+
+export class HexProjectile {
+    constructor(x, y, targetX, targetY, source) {
+        this.x = x; this.y = y;
+        this.source = source;
+        this.r = 25;
+        this.active = true;
+        this.life = 3.0;
+        const angle = Math.atan2(targetY - y, targetX - x);
+        const speed = 7;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+    }
+    _land() {
+        this.active = false;
+        state.hexZones.push(new HexZone(this.x, this.y, this.source));
+        emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#dc143c', count: 18, speed: 5, size: 3 });
+    }
+    update(dt, balls, width, height) {
+        this.life -= dt;
+        if (this.life <= 0) { this._land(); return; }
+
+        this.x += this.vx * dt * 60;
+        this.y += this.vy * dt * 60;
+        emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#dc143c', count: 1, speed: 1, size: 2 });
+
+        // Wall collision — land at the boundary
+        if (this.x - this.r < 0 || this.x + this.r > width ||
+            this.y - this.r < 0 || this.y + this.r > height) {
+            this.x = Math.max(this.r, Math.min(width - this.r, this.x));
+            this.y = Math.max(this.r, Math.min(height - this.r, this.y));
+            this._land();
+            return;
+        }
+
+        // Obstacle collision — land on contact
+        for (const obs of state.obstacles) {
+            if (Math.hypot(obs.x - this.x, obs.y - this.y) < obs.r + this.r) {
+                this._land();
+                return;
+            }
+        }
+
+        // Enemy proximity — land when within hex zone pull radius
+        const HEX_ZONE_R = 150;
+        for (const ball of balls) {
+            if (ball.team === this.source.team || ball.hp <= 0 || ball.intangible > 0) continue;
+            if (Math.hypot(ball.x - this.x, ball.y - this.y) < HEX_ZONE_R) {
+                this._land();
+                return;
             }
         }
     }
