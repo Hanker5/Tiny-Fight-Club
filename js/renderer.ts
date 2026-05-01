@@ -107,17 +107,39 @@ export function drawBall(ctx, ball) {
         ctx.restore();
     }
 
-    ctx.rotate(ball.angle);
-    ctx.beginPath();
-    ctx.moveTo(Math.cos(-Math.PI / 3) * ball.r, Math.sin(-Math.PI / 3) * ball.r);
-    ctx.lineTo(ball.r * 1.6, 0);
-    ctx.lineTo(Math.cos(Math.PI / 3) * ball.r, Math.sin(Math.PI / 3) * ball.r);
-    ctx.fillStyle = '#cbd5e1';
-    ctx.fill();
-    ctx.strokeStyle = '#020617';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.rotate(-ball.angle);
+    if (ball.abilityName === 'RapidSpin') {
+        const numSpikes = 8;
+        for (let i = 0; i < numSpikes; i++) {
+            const a = ball.angle + (i / numSpikes) * Math.PI * 2;
+            const tipX = Math.cos(a) * ball.r * 1.45;
+            const tipY = Math.sin(a) * ball.r * 1.45;
+            const perpA = a + Math.PI / 2;
+            const baseW = ball.r * 0.13;
+            const baseX = Math.cos(a) * ball.r;
+            const baseY = Math.sin(a) * ball.r;
+            ctx.beginPath();
+            ctx.moveTo(tipX, tipY);
+            ctx.lineTo(baseX + Math.cos(perpA) * baseW, baseY + Math.sin(perpA) * baseW);
+            ctx.lineTo(baseX - Math.cos(perpA) * baseW, baseY - Math.sin(perpA) * baseW);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fill();
+            ctx.strokeStyle = '#020617';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+    } else {
+        ctx.rotate(ball.angle);
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(-Math.PI / 3) * ball.r, Math.sin(-Math.PI / 3) * ball.r);
+        ctx.lineTo(ball.r * 1.6, 0);
+        ctx.lineTo(Math.cos(Math.PI / 3) * ball.r, Math.sin(Math.PI / 3) * ball.r);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fill();
+        ctx.strokeStyle = '#020617';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.rotate(-ball.angle);
+    }
 
     ctx.beginPath();
     ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
@@ -126,6 +148,13 @@ export function drawBall(ctx, ball) {
     ctx.lineWidth = 3;
     ctx.strokeStyle = '#020617';
     ctx.stroke();
+
+    if (ball.abilityName === 'RapidSpin' && ball.flash <= 0) {
+        ctx.beginPath();
+        ctx.arc(0, 0, ball.r * 0.32, 0, Math.PI * 2);
+        ctx.fillStyle = '#dc2626';
+        ctx.fill();
+    }
 
     if (ball.name === 'Bombastic Bubbles' && ball.flash <= 0) {
         ctx.save();

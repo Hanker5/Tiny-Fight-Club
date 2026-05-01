@@ -36,14 +36,25 @@ export function resolveCollision(b1, b2) {
             const diff1 = Math.abs(normalizeAngle(b1.angle - Math.atan2(ny, nx)));
             const diff2 = Math.abs(normalizeAngle(b2.angle - Math.atan2(-ny, -nx)));
 
-            const b1WeaponHits = diff1 < 1.05;
-            const b2WeaponHits = diff2 < 1.05;
+            const b1WeaponHits = b1.abilityName === 'RapidSpin' ? true : diff1 < 1.05;
+            const b2WeaponHits = b2.abilityName === 'RapidSpin' ? true : diff2 < 1.05;
 
             if (b1.hitCooldown <= 0 && b2.hitCooldown <= 0) {
                 const impactForce = Math.abs(j);
 
                 let dmg1 = b2.baseDamage + impactForce * 0.4;
                 let dmg2 = b1.baseDamage + impactForce * 0.4;
+
+                if (b1.abilityName === 'RapidSpin') {
+                    const b1Speed = Math.hypot(b1.vx, b1.vy);
+                    const headOn = b1Speed > 0 ? Math.abs((b1.vx * nx + b1.vy * ny) / b1Speed) : 0;
+                    dmg2 *= 1 + headOn * 1.2;
+                }
+                if (b2.abilityName === 'RapidSpin') {
+                    const b2Speed = Math.hypot(b2.vx, b2.vy);
+                    const headOn = b2Speed > 0 ? Math.abs((b2.vx * -nx + b2.vy * -ny) / b2Speed) : 0;
+                    dmg1 *= 1 + headOn * 1.2;
+                }
 
                 if (b2.abilityName === 'Berserk') dmg1 *= 1 + ((b2.maxHp - b2.hp) / b2.maxHp) * 0.6;
                 if (b1.abilityName === 'Berserk') dmg2 *= 1 + ((b1.maxHp - b1.hp) / b1.maxHp) * 0.6;

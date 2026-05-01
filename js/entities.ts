@@ -248,7 +248,7 @@ export class Ball {
             if (Math.random() < 0.33 * F) emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#fb923c', count: 2, speed: 1, size: 4 });
         }
 
-        if (dist > 0 && this.charging <= 0) {
+        if (dist > 0 && this.charging <= 0 && this.abilityName !== 'RapidSpin') {
             if (this.flash > 0.07) this.behaviorTimer = 0;
             if (dist < this.r + enemy.r + 60 && this.behaviorState === 'FLANKING') this.behaviorTimer = 0;
 
@@ -362,8 +362,10 @@ export class Ball {
             }
         }
 
-        this.vx *= Math.pow(0.95, F);
-        this.vy *= Math.pow(0.95, F);
+        if (this.abilityName !== 'RapidSpin') {
+            this.vx *= Math.pow(0.95, F);
+            this.vy *= Math.pow(0.95, F);
+        }
         this.x  += this.vx * F;
         this.y  += this.vy * F;
 
