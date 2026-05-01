@@ -1,12 +1,12 @@
 # Tiny Fight Club
 
-A browser-based 2D tournament simulator where 16 AI-controlled ball fighters compete in a single-elimination bracket. Sit back and watch — there's no player input during fights.
+A browser-based 2D tournament simulator where 30 AI-controlled ball fighters compete in a single-elimination bracket. Sit back and watch — there's no player input during fights.
 
 **[Play it live →](https://tiny-fight-club.vercel.app)**
 
 ## Fighters
 
-28 unique fighters, each with a distinct ability:
+30 unique fighters, each with a distinct ability:
 
 | Fighter | Ability | Playstyle |
 |---------|---------|-----------|
@@ -30,7 +30,7 @@ A browser-based 2D tournament simulator where 16 AI-controlled ball fighters com
 | Stick Man | Clone | Spawns a clone that flanks from the opposite side |
 | Legion | Summon | Periodically summons small minions |
 | CrazedAngelus | Immunity | Periodically becomes completely immune to all damage |
-| Dirty Dave | Absorb | Absorbs the opponent's ability |
+| Dirty Dave | Absorb | Absorbs an enemy ability each round (up to 3 stolen) |
 | Tron | Trail | Leaves a damaging neon trail that walls off the arena |
 | Ball Slayer | Boomerang | Hurls a boomerang blade that damages on throw and return |
 | The Gravy Train | SpeedRush | Gains speed every time it gets hit |
@@ -38,19 +38,14 @@ A browser-based 2D tournament simulator where 16 AI-controlled ball fighters com
 | TinyDancer | Dash | High speed, dashes forward to strike |
 | Black Panther | BlackPanther | High speed, high damage. Master flanker |
 | KayeeK | Phase | Periodically becomes intangible to attacks |
+| Snickerdoodle | Hex | Throws a hex zone — slows, pulls, and scorches enemies inside |
+| Bombastic Bubbles | ShieldBurst | Orbiting shields absorb damage, then launch as projectiles |
 
 ## Running Locally
 
-No build step required. Serve `index.html` via a local HTTP server — direct `file://` loading will fail due to ES module CORS restrictions.
-
 ```bash
-# Option 1: Node http-server
-npx http-server .
-
-# Option 2: Python
-python -m http.server
-
-# Option 3: VS Code Live Server extension
+npm install
+npm run dev      # Vite dev server → http://localhost:5173
 ```
 
 ### With API (leaderboard/history)
@@ -58,7 +53,6 @@ python -m http.server
 The `/api/*` endpoints use Vercel KV. To test them locally:
 
 ```bash
-npm install
 npx vercel dev
 ```
 
@@ -66,40 +60,52 @@ You'll need `KV_REST_API_URL` and `KV_REST_API_TOKEN` set in your environment. T
 
 ## Architecture
 
-Vanilla JS + Canvas, no framework. Hybrid ECS-adjacent + event-driven pattern.
+TypeScript + Canvas, built with Vite. Hybrid ECS-adjacent + event-driven pattern.
 
 ```
-game.js (requestAnimationFrame loop)
-  ├── entities.js  — Ball.update(): AI decision tree + physics per frame
-  ├── systems.js   — resolveCollision(): impact, damage, special interactions
-  ├── renderer.js  — Stateless draw functions
+game.ts (requestAnimationFrame loop)
+  ├── entities.ts  — Ball.update(): AI decision tree + physics per frame
+  ├── systems.ts   — resolveCollision(): impact, damage, special interactions
+  ├── renderer.ts  — Stateless draw functions
   │
-  └── On match events, emits via events.js:
-        ├── fx.js      → particles, floating damage text
-        ├── ui.js      → bracket DOM, overlays, leaderboard
-        └── game.js    → POST /api/record-match (fire-and-forget)
+  └── On match events, emits via events.ts:
+        ├── fx.ts      → particles, floating damage text
+        ├── ui.ts      → bracket DOM, overlays, leaderboard
+        └── game.ts    → POST /api/record-match (fire-and-forget)
 ```
 
 ### Key Files
 
 | File | Responsibility |
 |------|----------------|
-| `js/game.js` | Main loop, tournament state machine, canvas/HiDPI setup |
-| `js/state.js` | Central singleton: bracket, active entities, game phase |
-| `js/entities.js` | `Ball` class — physics, HP, cooldowns, all AI + 16 ability implementations |
-| `js/systems.js` | `resolveCollision()` — elastic collision math, weapon hit detection, damage |
-| `js/renderer.js` | Pure canvas draw functions (no state mutation) |
-| `js/ui.js` | DOM: bracket visualization, roster, leaderboard, overlay modal |
-| `js/fx.js` | Particle system, floating damage text |
-| `js/events.js` | Tiny `EventEmitter` singleton (`gameEvents`) |
-| `js/data.js` | 16 fighter stat/ability definitions |
-| `js/sim.js` | `SimEngine` — batch simulations between all fighter pairs |
-| `js/utils.js` | Utility functions (e.g., `normalizeAngle`) |
+| `js/game.ts` | Main loop, tournament state machine, canvas/HiDPI setup |
+| `js/state.ts` | Central singleton: bracket, active entities, game phase |
+| `js/entities.ts` | `Ball` class + all entity classes (Projectile, Hazard, BoomerangBlade, etc.) |
+| `js/abilities/` | One TypeScript file per ability — see below |
+| `js/systems.ts` | `resolveCollision()` — elastic collision math, weapon hit detection, damage |
+| `js/renderer.ts` | Pure canvas draw functions (no state mutation) |
+| `js/ui.ts` | DOM: bracket visualization, roster, leaderboard, overlay modal |
+| `js/fx.ts` | Particle system, floating damage text |
+| `js/events.ts` | Tiny `EventEmitter` singleton (`emitter`) |
+| `js/data.ts` | 30 fighter stat/ability definitions |
+| `js/types.ts` | Shared types: `FighterDef`, `BehaviorMode`, `ArenaSize`, `GamePhase` |
+| `js/sim.ts` | `SimEngine` — batch simulations between all fighter pairs |
+| `js/utils.ts` | Utility functions (e.g., `normalizeAngle`) |
 | `api/*.js` | Vercel serverless: record-match, leaderboard, history |
+
+### Ability System
+
+Each fighter's unique logic lives in its own file under `js/abilities/`, extending the `Ability` base class. Adding a new fighter requires:
+
+1. Create `js/abilities/MyAbility.ts`
+2. Register it in `js/abilities/AbilityRegistry.ts` (one line)
+3. Add a `FighterDef` to `js/data.ts`
+
+No changes to `Ball` or any other file needed.
 
 ### Game State Machine
 
-`state.gamePhase` cycles: `BRACKET → FIGHTING → ANIMATING_WIN → BRACKET → ...`
+`state.gameState` cycles: `BRACKET → FIGHTING → ANIMATING_WIN → BRACKET → ...`
 
 4 rounds (8 → 4 → 2 → 1 matches) per tournament.
 
@@ -107,7 +113,7 @@ game.js (requestAnimationFrame loop)
 
 The project includes a `SimEngine` for running batch simulations:
 
-```javascript
+```typescript
 // Run N matches between every pair of fighters
 const sim = new SimEngine(baseBalls, 10);
 sim.start(

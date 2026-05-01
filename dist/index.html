@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiny Fight Club</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" crossorigin src="/assets/index-Dai_FzAr.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BbPKedrN.css">
+</head>
+<body class="h-screen w-screen flex flex-col md:flex-row">
+
+    <!-- Left Panel: Tournament Bracket, Roster & Leaderboard -->
+    <div id="left-panel" class="w-full md:w-[45%] flex-shrink-0 bg-slate-800 flex flex-col border-b md:border-b-0 md:border-r border-slate-700 h-1/2 md:h-full z-20 shadow-2xl">
+
+        <!-- Tab bar -->
+        <div class="flex bg-slate-900 border-b border-slate-700 flex-shrink-0">
+            <button id="tab-bracket" onclick="switchTab('bracket')"
+                    class="tab-btn flex-1 font-bold tracking-wider text-slate-200 border-b-2 border-indigo-500 py-2"
+                    style="font-size: clamp(9px, 1vw, 17px)">BRACKET</button>
+            <button id="tab-leaderboard" onclick="switchTab('leaderboard')"
+                    class="tab-btn flex-1 font-bold tracking-wider text-slate-500 border-b-2 border-transparent py-2"
+                    style="font-size: clamp(9px, 1vw, 17px)">LEADERBOARD</button>
+        </div>
+
+        <!-- Fighter detail panel (shown during balance sim) -->
+        <div id="sim-fighter-panel" class="hidden flex-col flex-1 min-h-0">
+            <canvas id="sim-fighter-canvas" style="display:block;width:100%;flex:1;min-height:0"></canvas>
+        </div>
+
+        <!-- Bracket view -->
+        <div id="view-bracket" class="flex flex-col flex-1 min-h-0">
+            <div id="bracket-container" class="flex-1 overflow-auto p-4 flex items-center shadow-inner">
+            </div>
+            <div id="roster-container" class="h-1/3 overflow-y-auto p-3 border-t border-slate-700 bg-slate-900/50 flex-shrink-0">
+            </div>
+        </div>
+
+        <!-- Leaderboard view (hidden by default) -->
+        <div id="view-leaderboard" class="hidden flex-1 overflow-y-auto p-3">
+            <div id="leaderboard-container" class="space-y-1">
+                <div class="text-slate-500 italic p-3" style="font-size: clamp(11px, 1.1vw, 18px)">Loading…</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Arena -->
+    <div id="arena-container" class="flex-1 relative bg-slate-900 h-1/2 md:h-full z-10">
+        <canvas id="game-canvas" class="w-full h-full"></canvas>
+
+        <!-- Live Match Header -->
+        <div id="match-header" class="absolute top-4 left-1/2 transform -translate-x-1/2 font-black bg-slate-900/90 rounded-full hidden shadow-lg shadow-black/50 border border-slate-700 z-20 transition-all whitespace-nowrap"
+             style="font-size: clamp(12px, 2.5vw, 36px); padding: clamp(6px, 0.6vw, 12px) clamp(12px, 2vw, 32px)">
+        </div>
+
+        <!-- Match Timer / Sudden Death indicator -->
+        <div id="match-timer" class="hidden absolute left-1/2 -translate-x-1/2 z-20 font-mono font-black bg-slate-900/80 rounded-full border border-slate-700 select-none text-slate-100 transition-colors"
+             style="top: clamp(56px, 8vw, 108px); font-size: clamp(11px, 1.5vw, 22px); padding: clamp(3px, 0.4vw, 7px) clamp(10px, 1.3vw, 22px)">
+            1:00
+        </div>
+
+        <!-- Speed multiplier toggle -->
+        <button id="speed-btn" class="hidden absolute bottom-4 right-4 z-20 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-100 font-bold rounded-lg border border-slate-600 transition-colors select-none"
+                style="font-size: clamp(11px, 1.2vw, 18px); padding: clamp(4px, 0.5vw, 8px) clamp(10px, 1vw, 18px)">
+            1×
+        </button>
+
+        <!-- Balance Simulator Overlay -->
+        <div id="sim-overlay" class="absolute inset-0 z-50 hidden flex-col" style="background:rgba(2,6,23,0.97)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid #1e293b;flex-shrink:0">
+                <h2 style="font-weight:900;color:#f1f5f9;font-size:clamp(14px,2vw,24px);text-transform:uppercase;letter-spacing:.1em;margin:0">Balance Sim</h2>
+                <div style="display:flex;gap:10px;align-items:center">
+                    <span id="sim-status" style="color:#94a3b8;font-size:clamp(10px,1vw,14px)"></span>
+                    <button id="sim-run-btn" style="background:#4f46e5;color:#fff;font-weight:700;border-radius:8px;padding:6px 18px;border:none;cursor:pointer;font-size:clamp(11px,1vw,15px)">Run</button>
+                    <button id="sim-close-btn" style="background:#334155;color:#f1f5f9;font-weight:700;border-radius:8px;padding:6px 14px;border:none;cursor:pointer;font-size:clamp(11px,1vw,15px)">Close</button>
+                </div>
+            </div>
+            <div style="display:flex;gap:16px;align-items:center;padding:10px 20px;border-bottom:1px solid #1e293b;flex-shrink:0;flex-wrap:wrap">
+                <label style="color:#94a3b8;font-size:clamp(10px,1vw,14px)">
+                    Matches per pair:
+                    <input id="sim-matches-input" type="number" min="1" max="500" value="20"
+                           style="width:64px;background:#1e293b;color:#f1f5f9;border:1px solid #334155;border-radius:6px;padding:3px 8px;margin-left:6px;font-size:inherit">
+                </label>
+                <div id="sim-progress-bar-wrap" style="flex:1;min-width:120px;height:6px;background:#1e293b;border-radius:3px;overflow:hidden">
+                    <div id="sim-progress-bar" style="height:100%;width:0%;background:#4f46e5;transition:width 0.1s linear"></div>
+                </div>
+            </div>
+            <div style="flex:1;overflow-y:auto;padding:12px 20px">
+                <div id="sim-results-table"></div>
+                <details id="sim-h2h-details" style="margin-top:16px">
+                    <summary style="color:#64748b;cursor:pointer;font-size:clamp(10px,1vw,14px);user-select:none">Head-to-head matrix</summary>
+                    <div id="sim-h2h-table" style="overflow-x:auto;margin-top:8px"></div>
+                </details>
+            </div>
+        </div>
+
+        <!-- Tournament Builder Overlay -->
+        <div id="builder-overlay" class="absolute inset-0 flex flex-col z-40 hidden" style="background:rgba(2,6,23,0.97)">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid #1e293b;flex-shrink:0">
+                <h2 style="font-weight:900;color:#f1f5f9;font-size:clamp(14px,2.2vw,28px);text-transform:uppercase;letter-spacing:0.12em;margin:0">Select Your Fighters</h2>
+                <div id="builder-counter" style="color:#94a3b8;font-weight:700;font-size:clamp(12px,1.4vw,20px)">0 / 16 selected</div>
+            </div>
+            <div id="builder-grid" style="flex:1;overflow-y:auto;padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;align-content:start"></div>
+            <div style="display:flex;gap:12px;padding:14px 24px;border-top:1px solid #1e293b;flex-shrink:0;justify-content:center">
+                <button id="builder-back-btn"
+                        style="background:#1e293b;color:#cbd5e1;font-weight:700;border-radius:8px;padding:8px 20px;border:1px solid #334155;cursor:pointer;font-size:clamp(11px,1.1vw,16px);transition:background 0.15s"
+                        onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'">
+                    Back
+                </button>
+                <button id="builder-random-btn"
+                        style="background:#334155;color:#f1f5f9;font-weight:700;border-radius:8px;padding:8px 20px;border:none;cursor:pointer;font-size:clamp(11px,1.1vw,16px);transition:background 0.15s"
+                        onmouseover="this.style.background='#475569'" onmouseout="this.style.background='#334155'">
+                    Random 16
+                </button>
+                <button id="builder-start-btn" disabled
+                        style="background:#4f46e5;color:#fff;font-weight:700;border-radius:8px;padding:8px 28px;border:none;cursor:not-allowed;font-size:clamp(11px,1.1vw,16px);opacity:0.4;transition:all 0.15s">
+                    Start Tournament
+                </button>
+            </div>
+        </div>
+
+        <!-- UI Overlay (Menu, Next Match, Game Over) -->
+        <div id="overlay" class="absolute inset-0 bg-slate-900/80 flex flex-col items-center justify-center z-30 backdrop-blur-sm transition-opacity duration-300">
+            <h2 id="overlay-title" class="font-black text-white mb-2 drop-shadow-lg text-center uppercase tracking-widest"
+                style="font-size: clamp(20px, 4.5vw, 72px)">Tiny Fight Club</h2>
+            <div id="overlay-desc" class="text-slate-300 mb-8 max-w-md text-center px-4"
+                 style="font-size: clamp(12px, 1.6vw, 26px)">Welcome to the arena.</div>
+            <div class="flex flex-col gap-3 items-center">
+                <button id="start-btn" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-full transition-all transform hover:scale-105 hover:shadow-indigo-500/50 hover:shadow-lg active:scale-95"
+                        style="font-size: clamp(12px, 1.6vw, 26px); padding: clamp(8px, 0.8vw, 16px) clamp(16px, 2vw, 32px)">
+                    Start Tournament
+                </button>
+                <button id="quick-fight-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-full transition-all transform hover:scale-105 active:scale-95"
+                        style="font-size: clamp(11px, 1.4vw, 22px); padding: clamp(6px, 0.6vw, 12px) clamp(14px, 1.6vw, 28px)">
+                    Quick Fight
+                </button>
+                <button id="sim-btn" class="bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-full transition-all transform hover:scale-105 active:scale-95"
+                        style="font-size: clamp(11px, 1.4vw, 22px); padding: clamp(6px, 0.6vw, 12px) clamp(14px, 1.6vw, 28px)">
+                    Balance Sim
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tab) {
+            const isBracket = tab === 'bracket';
+            document.getElementById('view-bracket').classList.toggle('hidden', !isBracket);
+            document.getElementById('view-bracket').classList.toggle('flex', isBracket);
+            document.getElementById('view-leaderboard').classList.toggle('hidden', isBracket);
+            document.getElementById('tab-bracket').classList.toggle('text-slate-200', isBracket);
+            document.getElementById('tab-bracket').classList.toggle('border-indigo-500', isBracket);
+            document.getElementById('tab-bracket').classList.toggle('text-slate-500', !isBracket);
+            document.getElementById('tab-bracket').classList.toggle('border-transparent', !isBracket);
+            document.getElementById('tab-leaderboard').classList.toggle('text-slate-200', !isBracket);
+            document.getElementById('tab-leaderboard').classList.toggle('border-indigo-500', !isBracket);
+            document.getElementById('tab-leaderboard').classList.toggle('text-slate-500', isBracket);
+            document.getElementById('tab-leaderboard').classList.toggle('border-transparent', isBracket);
+            if (!isBracket) window.dispatchEvent(new Event('leaderboard:show'));
+        }
+    </script>
+</body>
+</html>

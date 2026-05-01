@@ -1,15 +1,5 @@
 # Tiny Fight Club — Improvement Ideas
 
-## High Impact
-
-1. **Match timer / Sudden Death** — Matches can go indefinitely if two tanky balls (Titan, Thorn) get stuck in a loop. A 60-second countdown that shrinks the arena or deals escalating damage to both balls would force resolution cleanly.
-
-2. **Speed multiplier button** — A 1x / 2x / 4x toggle on the arena overlay. `fpsInterval` already drives the loop, so this is a small change with big UX payoff.
-
-3. ~~**HiDPI canvas scaling**~~ ✅ — Implemented via `devicePixelRatio` in `resizeCanvas()` and a `resize` event listener.
-
-4. **Arena obstacles** — A few static circular pillars in the arena would break up open-field fights and create more interesting AI pathing. Better fix for stalemates than the current random-jitter failsafe.
-
 ## Medium Impact
 
 5. **Particle object pool** — `new Particle()` is called hundreds of times per second; GC pressure will cause stutters over long sessions. Pre-allocate a fixed array and recycle dead particles.
