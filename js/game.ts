@@ -76,6 +76,19 @@ function initTournament() {
     showBuilder(baseBalls, buildTournamentFromSelection, showMainMenu);
 }
 
+function startRandomTournament() {
+    setTournamentPanelVisible(true);
+    state.currentRound  = 0;
+    state.currentMatch  = 0;
+    state.tourneyWinner = null;
+    state.matchMode = 'TOURNAMENT';
+    const shuffled = [...baseBalls].sort(() => Math.random() - 0.5).slice(0, 16);
+    buildTournamentFromSelection(shuffled);
+    state.autoStartTimer = setTimeout(() => {
+        if (state.gameState === 'BRACKET') startNextMatch();
+    }, Math.round(3000 / state.speedMultiplier));
+}
+
 function showMainMenu() {
     setTournamentPanelVisible(true);
     if (state.autoStartTimer) { clearTimeout(state.autoStartTimer); state.autoStartTimer = null; }
@@ -352,7 +365,21 @@ function endMatch(winnerDef, loserDef, duration) {
 
     if (state.tourneyWinner) {
         emitter.emit('tournament:end', { champion: state.tourneyWinner });
-        showOverlay(`${state.tourneyWinner.name} Wins!`, 'The ultimate champion has been crowned.', 'Play Again', initTournament, state.tourneyWinner.color);
+        if (state.infiniteMode) {
+            const delay = Math.round(8000 / state.speedMultiplier);
+            showOverlay(
+                `${state.tourneyWinner.name} Wins!`,
+                `Next tournament starting in ${Math.round(delay / 1000)}s...`,
+                'Start Now',
+                () => { if (state.autoStartTimer) clearTimeout(state.autoStartTimer); startRandomTournament(); },
+                state.tourneyWinner.color
+            );
+            state.autoStartTimer = setTimeout(() => {
+                if (state.gameState === 'BRACKET') startRandomTournament();
+            }, delay);
+        } else {
+            showOverlay(`${state.tourneyWinner.name} Wins!`, 'The ultimate champion has been crowned.', 'Play Again', initTournament, state.tourneyWinner.color);
+        }
         return;
     }
 
@@ -683,6 +710,14 @@ window.onload = () => {
         const cur = speeds.indexOf(state.speedMultiplier);
         state.speedMultiplier = speeds[(cur + 1) % speeds.length];
         speedBtn.textContent = `${state.speedMultiplier}Ã—`;
+    });
+
+    const infiniteBtn = document.getElementById('infinite-btn');
+    infiniteBtn.addEventListener('click', () => {
+        state.infiniteMode = !state.infiniteMode;
+        infiniteBtn.textContent = state.infiniteMode ? '∞ On' : '∞ Off';
+        infiniteBtn.style.borderColor = state.infiniteMode ? '#a855f7' : '';
+        infiniteBtn.style.color       = state.infiniteMode ? '#a855f7' : '';
     });
 
     document.getElementById('sim-btn').addEventListener('click', () => {

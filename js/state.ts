@@ -25,5 +25,6 @@ export const state = {
     suddenDeath: false,
     shrinkInset: 0,
     speedMultiplier: 1,
+    infiniteMode: false,
     obstacles: []
 };
