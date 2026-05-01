@@ -527,7 +527,7 @@ export class Ball {
 
             } else if (this.ability === 'Absorb' && !this.hasAbsorbed && dist < 175
                     && enemy.ability && this.stolenAbilities.length < 3) {
-                const UNSTEALABLE = new Set(['Absorb', 'ShieldBurst']);
+                const UNSTEALABLE = new Set(['Absorb']);
                 const raw = enemy.def ? enemy.def.ability : enemy.ability;
                 const toSteal = (raw && !UNSTEALABLE.has(raw)) ? raw : null;
                 if (toSteal && !this.stolenAbilities.includes(toSteal)) {
@@ -809,6 +809,20 @@ export class Ball {
                     this.stolenCooldowns[_i] = 9999;
                     emitter.emit('fx:text', { text: 'CLONE!', x: this.x, y: this.y - this.r - 45, color: this.color });
                     emitter.emit('fx:particles', { x: clone.x, y: clone.y, color: this.color, count: 20, speed: 3 });
+                } else if (_sa === 'Hex' && dist < 700
+                        && Math.abs(normalizeAngle(this.angle - Math.atan2(dy, dx))) < 0.5) {
+                    state.hexProjectiles.push(new HexProjectile(this.x, this.y, enemy.x, enemy.y, this));
+                    this.stolenCooldowns[_i] = 7.0;
+                    emitter.emit('ability:used', { ball: this, ability: 'Hex', x: this.x, y: this.y });
+                } else if (_sa === 'ShieldBurst' && !this.shieldBurstActive) {
+                    for (let _si = 0; _si < 5; _si++) {
+                        state.shields.push(new OrbitalShield(this, (_si / 5) * Math.PI * 2, enemy));
+                    }
+                    this.shieldBurstActive = true;
+                    this.shieldBurstTimer  = 5.0;
+                    this.stolenCooldowns[_i] = 8.5;
+                    emitter.emit('ability:used', { ball: this, ability: 'ShieldBurst', x: this.x, y: this.y });
+                    emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#C8A0DE', count: 25, speed: 4 });
                 }
             }
         }
