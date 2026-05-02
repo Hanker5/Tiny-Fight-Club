@@ -20,3 +20,30 @@ export interface ArenaSize {
     width: number;
     height: number;
 }
+
+export type TournamentFormat = 'SINGLE_ELIMINATION' | 'SWISS';
+
+export interface SwissSettings {
+    numRounds: number;
+    bestOf: 1 | 3 | 5;
+}
+
+export interface SwissStanding {
+    fighter: FighterDef;
+    matchPoints: number;
+    matchWins: number;
+    matchLosses: number;
+    gameWins: number;
+    gameLosses: number;
+    byes: number;
+    opponents: string[];
+}
+
+export interface SwissMatch {
+    p1: FighterDef;
+    p2: FighterDef | null;
+    winner: FighterDef | null;
+    p1SeriesWins: number;
+    p2SeriesWins: number;
+    complete: boolean;
+}

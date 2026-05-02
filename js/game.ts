@@ -15,8 +15,10 @@ import {
 // ui.js: imported for side-effects (event subscriptions) + direct overlay/render calls
 import {
     showOverlay, hideOverlay, renderBracket, renderRoster, updateMatchTimer,
-    showBuilder, hideBuilder, showQuickFightPicker, showCustomResultOverlay
+    showBuilder, hideBuilder, showQuickFightPicker, showCustomResultOverlay,
+    showSwissSettingsOverlay, renderSwissStandings
 } from './ui';
+import type { TournamentFormat, SwissSettings, SwissStanding, SwissMatch } from './types';
 
 // Record each match result to the backend â€” fire-and-forget, never throws.
 emitter.on('match:end', async ({ winner, loser, round, duration, custom }) => {
@@ -116,13 +118,26 @@ function showMainMenu() {
     const menuBtn = document.getElementById('menu-btn');
     if (menuBtn) menuBtn.classList.add('hidden');
 
-    showOverlay('Tiny Fight Club', 'Welcome to the arena.', 'Start Tournament', initTournament);
+    state.tournamentFormat = 'SINGLE_ELIMINATION';
+    const tabBracket = document.getElementById('tab-bracket');
+    if (tabBracket) tabBracket.textContent = 'BRACKET';
+    showOverlay('Tiny Fight Club', 'Welcome to the arena.', 'Start Tournament', showFormatPicker);
     const quickBtn = document.getElementById('quick-fight-btn');
     quickBtn.innerText = 'Quick Fight';
     quickBtn.onclick = openQuickFightPicker;
     quickBtn.classList.remove('hidden');
     const simBtn = document.getElementById('sim-btn');
     if (simBtn) simBtn.classList.remove('hidden');
+}
+
+function showFormatPicker() {
+    showOverlay('Tournament Format', 'Choose how the tournament is run.', 'Bracket (Elimination)', initTournament);
+    const quickBtn = document.getElementById('quick-fight-btn');
+    quickBtn.innerText = 'Swiss System';
+    quickBtn.onclick = initSwissTournament;
+    quickBtn.classList.remove('hidden');
+    const simBtn = document.getElementById('sim-btn');
+    if (simBtn) simBtn.classList.add('hidden');
 }
 
 function setTournamentPanelVisible(visible) {
@@ -151,6 +166,10 @@ function buildTournamentFromSelection(selectedDefs) {
             damage: Math.floor(base.damage * dmgVar)
         };
     }).sort(() => Math.random() - 0.5);
+
+    state.tournamentFormat = 'SINGLE_ELIMINATION';
+    const tabBracketEl = document.getElementById('tab-bracket');
+    if (tabBracketEl) tabBracketEl.textContent = 'BRACKET';
 
     state.bracket = [
         [
@@ -185,6 +204,334 @@ function buildTournamentFromSelection(selectedDefs) {
     renderRoster();
     showOverlay('Tiny Fight Club', 'The arena is set. Let the battle begin.', 'Start Tournament', startNextMatch);
 }
+
+// ─── SWISS TOURNAMENT ──────────────────────────────────────────────────────────
+
+function initSwissTournament() {
+    setTournamentPanelVisible(true);
+    state.tournamentFormat = 'SWISS';
+    state.swissRound = 0;
+    state.swissCurrentMatch = 0;
+    state.swissChampion = null;
+    state.tourneyWinner = null;
+    state.matchMode = 'TOURNAMENT';
+    showSwissSettingsOverlay(onSwissSettingsConfirmed, showFormatPicker);
+}
+
+function onSwissSettingsConfirmed(settings: SwissSettings) {
+    state.swissSettings = settings;
+    showBuilder(baseBalls, buildSwissTournamentFromSelection, initSwissTournament, 0);
+}
+
+function buildSwissTournamentFromSelection(selectedDefs) {
+    const roster = selectedDefs.map(base => {
+        const hpVar    = 0.9 + Math.random() * 0.2;
+        const speedVar = 0.9 + Math.random() * 0.2;
+        const dmgVar   = 0.9 + Math.random() * 0.2;
+        return {
+            ...base,
+            hp:     Math.floor(base.hp    * hpVar),
+            maxHp:  Math.floor(base.maxHp * hpVar),
+            speed:  parseFloat((base.speed * speedVar).toFixed(1)),
+            damage: Math.floor(base.damage * dmgVar)
+        };
+    });
+
+    state.swissStandings = roster.map(f => ({
+        fighter: f, matchPoints: 0, matchWins: 0, matchLosses: 0,
+        gameWins: 0, gameLosses: 0, byes: 0, opponents: []
+    }));
+    state.swissPairings      = [];
+    state.swissRound         = 0;
+    state.swissCurrentMatch  = 0;
+    state.swissSeriesScore   = { p1: 0, p2: 0 };
+    state.gameState          = 'BRACKET';
+    state.matchMode          = 'TOURNAMENT';
+
+    const tabBracket = document.getElementById('tab-bracket');
+    if (tabBracket) tabBracket.textContent = 'STANDINGS';
+
+    generateSwissPairings(true);
+    renderSwissStandings();
+    renderRoster();
+    showOverlay('Swiss Tournament', 'Round 1 pairings are ready.', 'Start Round 1', startNextSwissMatch);
+}
+
+export function getSwissSortedStandings(): SwissStanding[] {
+    const all: SwissStanding[] = state.swissStandings;
+    const FLOOR = 1 / 3;
+
+    const mwPct = (s: SwissStanding) => {
+        const t = s.matchWins + s.matchLosses;
+        return t === 0 ? FLOOR : Math.max(FLOOR, s.matchWins / t);
+    };
+    const gwPct = (s: SwissStanding) => {
+        const t = s.gameWins + s.gameLosses;
+        return t === 0 ? FLOOR : Math.max(FLOOR, s.gameWins / t);
+    };
+    const omwPct = (s: SwissStanding) => {
+        if (!s.opponents.length) return FLOOR;
+        const sum = s.opponents.reduce((a, n) => {
+            const o = all.find(x => x.fighter.name === n);
+            return a + (o ? mwPct(o) : FLOOR);
+        }, 0);
+        return Math.max(FLOOR, sum / s.opponents.length);
+    };
+    const ogwPct = (s: SwissStanding) => {
+        if (!s.opponents.length) return FLOOR;
+        const sum = s.opponents.reduce((a, n) => {
+            const o = all.find(x => x.fighter.name === n);
+            return a + (o ? gwPct(o) : FLOOR);
+        }, 0);
+        return Math.max(FLOOR, sum / s.opponents.length);
+    };
+
+    return [...all].sort((a, b) =>
+        b.matchPoints - a.matchPoints ||
+        omwPct(b) - omwPct(a) ||
+        gwPct(b) - gwPct(a) ||
+        ogwPct(b) - ogwPct(a)
+    );
+}
+
+function generateSwissPairings(isRoundOne = false) {
+    const standings: SwissStanding[] = state.swissStandings;
+    const pairings: SwissMatch[] = [];
+
+    // Bye selection for odd player count
+    let byeRecipient: SwissStanding | null = null;
+    if (standings.length % 2 === 1) {
+        const sorted = getSwissSortedStandings();
+        for (let i = sorted.length - 1; i >= 0; i--) {
+            if (sorted[i].byes === 0) { byeRecipient = sorted[i]; break; }
+        }
+        if (!byeRecipient) byeRecipient = sorted[sorted.length - 1];
+        byeRecipient.matchPoints += 3;
+        byeRecipient.matchWins++;
+        byeRecipient.gameWins += 2;
+        byeRecipient.byes++;
+        pairings.push({ p1: byeRecipient.fighter, p2: null,
+            winner: byeRecipient.fighter, p1SeriesWins: 2, p2SeriesWins: 0, complete: true });
+    }
+
+    let pool: SwissStanding[] = byeRecipient ? standings.filter(s => s !== byeRecipient) : standings;
+
+    if (isRoundOne) {
+        pool = [...pool].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < pool.length; i += 2) {
+            pairings.push({ p1: pool[i].fighter, p2: pool[i + 1].fighter,
+                winner: null, p1SeriesWins: 0, p2SeriesWins: 0, complete: false });
+        }
+    } else {
+        pool.sort((a, b) => b.matchPoints - a.matchPoints);
+        const unpaired: SwissStanding[] = [...pool];
+        while (unpaired.length >= 2) {
+            const first = unpaired.shift()!;
+            let bestIdx = -1, bestWeight = -Infinity;
+            for (let i = 0; i < unpaired.length; i++) {
+                const opp = unpaired[i];
+                let w = 1000;
+                if (first.opponents.includes(opp.fighter.name)) w -= 900;
+                w -= 100 * Math.abs(first.matchPoints - opp.matchPoints);
+                if (first.matchPoints === opp.matchPoints) w += 50;
+                if (w > bestWeight) { bestWeight = w; bestIdx = i; }
+            }
+            const partner = unpaired.splice(bestIdx, 1)[0];
+            pairings.push({ p1: first.fighter, p2: partner.fighter,
+                winner: null, p1SeriesWins: 0, p2SeriesWins: 0, complete: false });
+        }
+    }
+
+    state.swissPairings = pairings;
+    state.swissCurrentMatch = 0;
+}
+
+function launchSwissFight(match: SwissMatch) {
+    state.ball1 = new Ball(match.p1);
+    state.ball2 = new Ball(match.p2!);
+
+    state.ball1.team = 1;
+    state.ball2.team = 2;
+
+    const margin = 120;
+    const halfW  = VIRTUAL_W / 2;
+
+    state.ball1.x     = margin + Math.random() * (halfW - margin * 2);
+    state.ball1.y     = margin + Math.random() * (VIRTUAL_H - margin * 2);
+    state.ball1.angle = Math.random() * Math.PI * 2;
+    state.ball1.vx    = (Math.random() - 0.5) * 12;
+    state.ball1.vy    = (Math.random() - 0.5) * 12;
+
+    state.ball2.x     = halfW + margin + Math.random() * (halfW - margin * 2);
+    state.ball2.y     = margin + Math.random() * (VIRTUAL_H - margin * 2);
+    state.ball2.angle = Math.random() * Math.PI * 2;
+    state.ball2.vx    = (Math.random() - 0.5) * 12;
+    state.ball2.vy    = (Math.random() - 0.5) * 12;
+
+    state.balls         = [state.ball1, state.ball2];
+    state.projectiles   = [];
+    state.particles     = [];
+    state.floatingTexts = [];
+    state.noteParticles = [];
+    state.hazards       = [];
+    state.hexZones      = [];
+    state.hexProjectiles = [];
+    state.trails        = [];
+    state.boomerangs    = [];
+    state.shields       = [];
+    state.portals       = [];
+    state.confetti      = [];
+    state.obstacles     = OBSTACLES;
+    state.matchTime     = 0;
+    state.suddenDeath   = false;
+    state.shrinkInset   = 0;
+    state.gameState     = 'FIGHTING';
+    state.matchMode     = 'TOURNAMENT';
+    state.matchStartTime = performance.now();
+
+    hideOverlay();
+    emitter.emit('match:start', {
+        ball1: state.ball1,
+        ball2: state.ball2,
+        round: state.swissRound,
+        matchIndex: state.swissCurrentMatch
+    });
+}
+
+function startNextSwissMatch() {
+    if (state.autoStartTimer) clearTimeout(state.autoStartTimer);
+
+    // Skip pre-completed bye matches
+    while (state.swissCurrentMatch < state.swissPairings.length &&
+           state.swissPairings[state.swissCurrentMatch].complete) {
+        state.swissCurrentMatch++;
+    }
+
+    if (state.swissCurrentMatch >= state.swissPairings.length) {
+        advanceSwissRound();
+        return;
+    }
+
+    const match: SwissMatch = state.swissPairings[state.swissCurrentMatch];
+    state.swissSeriesScore = { p1: 0, p2: 0 };
+    launchSwissFight(match);
+}
+
+function continueSeries() {
+    const match: SwissMatch = state.swissPairings[state.swissCurrentMatch];
+    launchSwissFight(match);
+}
+
+function endSwissMatch(winnerDef, loserDef, duration) {
+    const match: SwissMatch = state.swissPairings[state.swissCurrentMatch];
+    const settings: SwissSettings = state.swissSettings;
+    const winsNeeded = Math.ceil(settings.bestOf / 2);
+
+    if (winnerDef.name === match.p1.name) match.p1SeriesWins++;
+    else match.p2SeriesWins++;
+
+    const seriesOver = match.p1SeriesWins >= winsNeeded || match.p2SeriesWins >= winsNeeded;
+
+    if (!seriesOver) {
+        state.gameState = 'BRACKET';
+        const gameNum = match.p1SeriesWins + match.p2SeriesWins;
+        showOverlay(
+            `${winnerDef.name} wins game ${gameNum}`,
+            `Series: ${match.p1.name} ${match.p1SeriesWins}–${match.p2SeriesWins} ${match.p2!.name}  (Best of ${settings.bestOf})`,
+            'Next Game',
+            () => { clearTimeout(state.autoStartTimer); continueSeries(); }
+        );
+        state.autoStartTimer = setTimeout(
+            () => { if (state.gameState === 'BRACKET') continueSeries(); },
+            Math.round(4000 / state.speedMultiplier)
+        );
+        return;
+    }
+
+    // Series complete — determine winner
+    const seriesWinner = match.p1SeriesWins >= winsNeeded ? match.p1 : match.p2!;
+    const seriesLoser  = seriesWinner === match.p1 ? match.p2! : match.p1;
+    match.winner   = seriesWinner;
+    match.complete = true;
+
+    const ws: SwissStanding = state.swissStandings.find(s => s.fighter.name === seriesWinner.name)!;
+    const ls: SwissStanding = state.swissStandings.find(s => s.fighter.name === seriesLoser.name)!;
+
+    ws.matchPoints += 3;
+    ws.matchWins++;
+    ls.matchLosses++;
+
+    const winnerGames = seriesWinner === match.p1 ? match.p1SeriesWins : match.p2SeriesWins;
+    const loserGames  = seriesWinner === match.p1 ? match.p2SeriesWins : match.p1SeriesWins;
+    ws.gameWins   += winnerGames;
+    ws.gameLosses += loserGames;
+    ls.gameWins   += loserGames;
+    ls.gameLosses += winnerGames;
+
+    ws.opponents.push(seriesLoser.name);
+    ls.opponents.push(seriesWinner.name);
+
+    state.gameState = 'BRACKET';
+    state.swissCurrentMatch++;
+
+    emitter.emit('match:end', { winner: seriesWinner, loser: seriesLoser,
+        round: state.swissRound, matchIndex: state.swissCurrentMatch - 1, duration });
+    renderSwissStandings();
+
+    const roundComplete = state.swissPairings.every(m => m.complete);
+    if (roundComplete) { advanceSwissRound(); return; }
+
+    // Advance past bye matches to get the real next match
+    let nextIdx = state.swissCurrentMatch;
+    while (nextIdx < state.swissPairings.length && state.swissPairings[nextIdx].complete) nextIdx++;
+
+    if (nextIdx >= state.swissPairings.length) {
+        advanceSwissRound();
+        return;
+    }
+
+    const next: SwissMatch = state.swissPairings[nextIdx];
+    showOverlay(
+        `Next: ${next.p1.name} vs ${next.p2!.name}`,
+        `Round ${state.swissRound + 1} of ${settings.numRounds} — Match ${nextIdx + 1}`,
+        'Start Now',
+        () => { clearTimeout(state.autoStartTimer); startNextSwissMatch(); }
+    );
+    state.autoStartTimer = setTimeout(
+        () => { if (state.gameState === 'BRACKET') startNextSwissMatch(); },
+        5000
+    );
+}
+
+function advanceSwissRound() {
+    state.swissRound++;
+    const settings: SwissSettings = state.swissSettings;
+
+    if (state.swissRound >= settings.numRounds) {
+        const sorted = getSwissSortedStandings();
+        state.swissChampion = sorted[0].fighter;
+        state.tourneyWinner = state.swissChampion;
+        emitter.emit('tournament:end', { champion: state.swissChampion });
+        renderSwissStandings();
+        showOverlay(
+            `${state.swissChampion.name} Wins!`,
+            `Swiss champion after ${settings.numRounds} rounds.`,
+            'Play Again', initSwissTournament, state.swissChampion.color
+        );
+        return;
+    }
+
+    generateSwissPairings(false);
+    renderSwissStandings();
+    renderRoster();
+    showOverlay(
+        `Round ${state.swissRound + 1} of ${settings.numRounds}`,
+        'New pairings are ready.',
+        `Start Round ${state.swissRound + 1}`, startNextSwissMatch
+    );
+}
+
+// ─── END SWISS TOURNAMENT ──────────────────────────────────────────────────────
 
 function startNextMatch() {
     if (state.autoStartTimer) clearTimeout(state.autoStartTimer);
@@ -320,6 +667,7 @@ export function startCustomMatch(def1, def2) {
 
 function endMatch(winnerDef, loserDef, duration) {
     if (state.matchMode === 'CUSTOM_1V1') {
+        // custom 1v1 path handled below
         state.gameState = 'BRACKET';
         emitter.emit('match:end', {
             winner: winnerDef,
@@ -336,6 +684,11 @@ function endMatch(winnerDef, loserDef, duration) {
             openQuickFightPicker,
             showMainMenu
         );
+        return;
+    }
+
+    if (state.tournamentFormat === 'SWISS') {
+        endSwissMatch(winnerDef, loserDef, duration);
         return;
     }
 

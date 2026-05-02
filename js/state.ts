@@ -27,5 +27,13 @@ export const state = {
     shrinkInset: 0,
     speedMultiplier: 1,
     infiniteMode: false,
-    obstacles: []
+    obstacles: [],
+    tournamentFormat: 'SINGLE_ELIMINATION',
+    swissSettings: null,
+    swissStandings: [],
+    swissPairings: [],
+    swissRound: 0,
+    swissCurrentMatch: 0,
+    swissSeriesScore: { p1: 0, p2: 0 },
+    swissChampion: null
 };
