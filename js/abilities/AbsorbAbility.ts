@@ -4,7 +4,7 @@ import type { Ball } from '../entities';
 import type { ArenaSize, BehaviorMode } from '../types';
 import { emitter } from '../events';
 
-const UNSTEALABLE = new Set(['Absorb']);
+const UNSTEALABLE = new Set(['Absorb', 'RapidSpin']);
 
 export class AbsorbAbility extends Ability {
     readonly name = 'Absorb';
@@ -23,6 +23,7 @@ export class AbsorbAbility extends Ability {
         const dx = enemy.x - ball.x, dy = enemy.y - ball.y;
         const dist = Math.hypot(dx, dy);
         if (ball.hasAbsorbed || ball.stolenAbilities.length >= 3 || dist >= 175) return null;
+        if (enemy.isMinion || enemy.isClone || enemy.isDecoy) return null;
         if (!enemy.ability) return null;
 
         const raw = enemy.def ? enemy.def.ability : enemy.abilityName;

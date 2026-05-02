@@ -235,13 +235,15 @@ export function drawBall(ctx, ball) {
 export function drawHazard(ctx, hazard) {
     const alpha = Math.min(1, hazard.life);  // fade out during last second
     const pulse = 0.75 + 0.25 * Math.sin(performance.now() / 120);
+    const color = hazard.source.color;
+    const lighter = lightenColor(color, 30);
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.shadowColor = '#f59e0b';
+    ctx.shadowColor = color;
     ctx.shadowBlur = 18 * pulse;
-    ctx.strokeStyle = '#fde68a';
+    ctx.strokeStyle = lighter;
     ctx.lineWidth = 2.5;
-    ctx.fillStyle = '#d97706';
+    ctx.fillStyle = color;
     ctx.beginPath();
     for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2 - Math.PI / 2;

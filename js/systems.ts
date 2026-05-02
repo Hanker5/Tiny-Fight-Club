@@ -1,6 +1,10 @@
 ﻿import { normalizeAngle } from './utils';
 import { emitter } from './events';
 
+function hasAbility(ball, name) {
+    return ball.abilityName === name || (ball.stolenAbilities && ball.stolenAbilities.some(a => a.name === name));
+}
+
 export function resolveCollision(b1, b2) {
     if (b1.intangible > 0 || b2.intangible > 0) return;
 
@@ -56,8 +60,8 @@ export function resolveCollision(b1, b2) {
                     dmg1 *= 1 + headOn * 1.2;
                 }
 
-                if (b2.abilityName === 'Berserk') dmg1 *= 1 + ((b2.maxHp - b2.hp) / b2.maxHp) * 0.6;
-                if (b1.abilityName === 'Berserk') dmg2 *= 1 + ((b1.maxHp - b1.hp) / b1.maxHp) * 0.6;
+                if (hasAbility(b2, 'Berserk')) dmg1 *= 1 + ((b2.maxHp - b2.hp) / b2.maxHp) * 0.6;
+                if (hasAbility(b1, 'Berserk')) dmg2 *= 1 + ((b1.maxHp - b1.hp) / b1.maxHp) * 0.6;
 
                 let validHitOccurred = false;
 
@@ -71,7 +75,7 @@ export function resolveCollision(b1, b2) {
                         }
                     } else {
                         b2.takeDamage(dmg2, b1);
-                        if (b1.abilityName === 'Poison') {
+                        if (hasAbility(b1, 'Poison')) {
                             b2.poisoned = 2.8;
                             emitter.emit('ball:poisoned', { ball: b2 });
                         }
@@ -91,7 +95,7 @@ export function resolveCollision(b1, b2) {
                         }
                     } else {
                         b1.takeDamage(dmg1, b2);
-                        if (b2.abilityName === 'Poison') {
+                        if (hasAbility(b2, 'Poison')) {
                             b1.poisoned = 2.8;
                             emitter.emit('ball:poisoned', { ball: b1 });
                         }

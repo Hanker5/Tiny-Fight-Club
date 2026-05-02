@@ -402,7 +402,7 @@ export class Hazard {
         const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
         if (dist < enemy.r + this.r && enemy.intangible <= 0) {
             enemy.takeDamage(this.damage, this.source);
-            emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#d97706', count: 25, speed: 5 });
+            emitter.emit('fx:particles', { x: this.x, y: this.y, color: this.source.color, count: 25, speed: 5 });
             this.active = false;
         }
     }
