@@ -28,6 +28,7 @@ import { HeavyAbility } from './HeavyAbility';
 import { PoisonAbility } from './PoisonAbility';
 import { RapidSpinAbility } from './RapidSpinAbility';
 import { TempoAbility } from './TempoAbility';
+import { ShriekAbility } from './ShriekAbility';
 
 type AbilityCtor = new () => Ability;
 
@@ -61,6 +62,7 @@ const registry = new Map<string, AbilityCtor>([
     ['Poison',      PoisonAbility],
     ['RapidSpin',   RapidSpinAbility],
     ['Tempo',       TempoAbility],
+    ['Shriek',      ShriekAbility],
 ]);
 
 export function createAbility(name: string): Ability {

@@ -40,8 +40,8 @@ export function resolveCollision(b1, b2) {
             const diff1 = Math.abs(normalizeAngle(b1.angle - Math.atan2(ny, nx)));
             const diff2 = Math.abs(normalizeAngle(b2.angle - Math.atan2(-ny, -nx)));
 
-            const b1WeaponHits = b1.abilityName === 'RapidSpin' ? true : diff1 < 1.05;
-            const b2WeaponHits = b2.abilityName === 'RapidSpin' ? true : diff2 < 1.05;
+            const b1WeaponHits = b1.stunned > 0 ? false : (b1.abilityName === 'RapidSpin' ? true : diff1 < 1.05);
+            const b2WeaponHits = b2.stunned > 0 ? false : (b2.abilityName === 'RapidSpin' ? true : diff2 < 1.05);
 
             if (b1.hitCooldown <= 0 && b2.hitCooldown <= 0) {
                 const impactForce = Math.abs(j);

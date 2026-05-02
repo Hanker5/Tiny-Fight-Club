@@ -307,6 +307,7 @@ class SimEngine {
         // Clear visual-only arrays (no game effect, prevent unbounded growth)
         state.particles     = [];
         state.floatingTexts = [];
+        state.noteParticles = [];
         state.confetti      = [];
     }
 }

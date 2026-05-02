@@ -41,6 +41,8 @@ export class Ball {
     charging: number;
     pulseVisual: number;
     hexed: number;
+    stunned: number;
+    shriekVisual: number;
 
     behaviorState: BehaviorMode;
     behaviorTimer: number;
@@ -101,6 +103,8 @@ export class Ball {
         this.charging = 0;
         this.pulseVisual = 0;
         this.hexed = 0;
+        this.stunned = 0;
+        this.shriekVisual = 0;
 
         this.behaviorState = 'AGGRESSIVE';
         this.behaviorTimer = 0;
@@ -196,9 +200,11 @@ export class Ball {
 
         if (this.hitCooldown > 0) this.hitCooldown  -= dt;
         if (this.intangible  > 0) this.intangible   -= dt;
-        if (this.pulseVisual > 0) this.pulseVisual   -= dt;
-        if (this.flash       > 0) this.flash         -= dt;
-        if (this.hexed       > 0) this.hexed         -= dt;
+        if (this.pulseVisual  > 0) this.pulseVisual   -= dt;
+        if (this.flash        > 0) this.flash         -= dt;
+        if (this.hexed        > 0) this.hexed         -= dt;
+        if (this.stunned      > 0) this.stunned       -= dt;
+        if (this.shriekVisual > 0) this.shriekVisual  -= dt;
 
         if (this.shieldBurstTimer > 0) {
             this.shieldBurstTimer -= dt;
@@ -248,7 +254,12 @@ export class Ball {
             if (Math.random() < 0.33 * F) emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#fb923c', count: 2, speed: 1, size: 4 });
         }
 
-        if (dist > 0 && this.charging <= 0 && this.abilityName !== 'RapidSpin') {
+        if (this.stunned > 0) {
+            this.vx *= Math.pow(0.7, F);
+            this.vy *= Math.pow(0.7, F);
+        }
+
+        if (dist > 0 && this.charging <= 0 && this.abilityName !== 'RapidSpin' && this.stunned <= 0) {
             if (this.flash > 0.07) this.behaviorTimer = 0;
             if (dist < this.r + enemy.r + 60 && this.behaviorState === 'FLANKING') this.behaviorTimer = 0;
 
@@ -347,7 +358,7 @@ export class Ball {
         const arena = { width, height };
 
         // Primary ability trigger
-        if (this.abilityCooldown <= 0 && !this.ability.isPassive && fighting) {
+        if (this.abilityCooldown <= 0 && !this.ability.isPassive && fighting && this.stunned <= 0) {
             const cd = this.ability.tryTrigger(this, enemy, arena, dt);
             if (cd !== null) this.abilityCooldown = cd;
         }
@@ -355,7 +366,7 @@ export class Ball {
         // Stolen ability triggers (Dirty Dave)
         if (fighting && this.stolenAbilities.length > 0) {
             for (const sa of this.stolenAbilities) {
-                if (sa.cooldown <= 0 && !sa.isPassive) {
+                if (sa.cooldown <= 0 && !sa.isPassive && this.stunned <= 0) {
                     const cd = sa.tryTrigger(this, enemy, arena, dt);
                     if (cd !== null) sa.cooldown = cd;
                 }

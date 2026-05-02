@@ -79,11 +79,37 @@ export function addFloatingText(text, x, y, color) {
     state.floatingTexts.push(new FloatingText(text, x, y, color));
 }
 
+class NoteParticle {
+    constructor(text, x, y, angle, color) {
+        this.text  = text;
+        this.x     = x;
+        this.y     = y;
+        this.vx    = Math.cos(angle) * 187;  // px/s — matches wave2 ring expansion rate
+        this.vy    = Math.sin(angle) * 187;
+        this.color = color;
+        this.duration = 0.8;  // matches shriekVisual duration
+        this.age   = 0;
+        this.life  = 1.0;
+    }
+    update(dt) {
+        this.age  += dt;
+        this.x    += this.vx * dt;
+        this.y    += this.vy * dt;
+        this.life  = Math.max(0, 1 - this.age / this.duration);
+    }
+}
+
 // Subscribe to simulation events and translate them into visual effects.
 // This keeps all FX logic here, out of the simulation classes.
 
 emitter.on('fx:particles', ({ x, y, color, count, speed = 3, size = 3 }) => {
     createParticles(x, y, color, count, speed, size);
+});
+
+emitter.on('fx:notes', ({ notes }) => {
+    for (const n of notes) {
+        state.noteParticles.push(new NoteParticle(n.text, n.x, n.y, n.angle, n.color));
+    }
 });
 
 emitter.on('fx:text', ({ text, x, y, color }) => {

@@ -169,6 +169,49 @@ export function drawBall(ctx, ball) {
         ctx.restore();
     }
 
+    if (ball.shriekVisual > 0) {
+        const shriekDuration = 0.8;
+        const remaining = Math.min(1, ball.shriekVisual / shriekDuration);
+        const progress = 1 - remaining;
+        const wave1R = ball.r + 10 + progress * 230;
+        const wave2R = ball.r + 10 + progress * 150;
+        const wave3R = ball.r + 10 + progress * 80;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.shadowColor = '#006eb6';
+        ctx.shadowBlur = 22 * remaining;
+        ctx.lineWidth = 7 * remaining;
+        ctx.strokeStyle = `rgba(0, 110, 182, ${0.65 * remaining})`;
+        ctx.beginPath(); ctx.arc(0, 0, wave1R, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 5 * remaining;
+        ctx.strokeStyle = `rgba(80, 170, 240, ${0.7 * remaining})`;
+        ctx.beginPath(); ctx.arc(0, 0, wave2R, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 3 * remaining;
+        ctx.strokeStyle = `rgba(200, 235, 255, ${0.9 * remaining})`;
+        ctx.beginPath(); ctx.arc(0, 0, wave3R, 0, Math.PI * 2); ctx.stroke();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+    }
+
+    if (ball.stunned > 0) {
+        const t = performance.now() / 280;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.shadowColor = '#fde047';
+        ctx.shadowBlur = 14;
+        for (let i = 0; i < 3; i++) {
+            const a = t + (i / 3) * Math.PI * 2;
+            const ox = Math.cos(a) * (ball.r + 15);
+            const oy = Math.sin(a) * (ball.r + 15);
+            ctx.beginPath();
+            ctx.arc(ox, oy, 5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(253, 224, 71, 0.9)';
+            ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+        ctx.restore();
+    }
+
     if (ball.name === 'Snickerdoodle') {
         ctx.fillStyle = '#8B4513';
         // Freckles: more spread out and varied positions
@@ -516,6 +559,21 @@ export function drawParticle(ctx, particle) {
     ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1.0;
+}
+
+export function drawNoteParticle(ctx, np) {
+    ctx.globalAlpha = Math.max(0, np.life);
+    const size = Math.round(16 + (1 - np.life) * 6);
+    ctx.font = `bold ${size}px "Segoe UI", sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = np.color;
+    ctx.strokeStyle = '#020617';
+    ctx.lineWidth = 3;
+    ctx.strokeText(np.text, np.x, np.y);
+    ctx.fillText(np.text, np.x, np.y);
+    ctx.globalAlpha = 1.0;
+    ctx.textBaseline = 'alphabetic';
 }
 
 export function drawFloatingText(ctx, ft) {

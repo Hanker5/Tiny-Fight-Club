@@ -12,6 +12,7 @@ export const state = {
     projectiles: [],
     particles: [],
     floatingTexts: [],
+    noteParticles: [],
     hazards: [],
     hexZones: [],
     hexProjectiles: [],

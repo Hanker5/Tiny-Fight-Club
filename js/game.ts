@@ -7,7 +7,7 @@ import { emitter } from './events';
 import { normalizeAngle } from './utils';
 import {
     drawBall, drawHazard, drawHexZone, drawHexProjectile, drawProjectile,
-    drawParticle, drawFloatingText,
+    drawParticle, drawFloatingText, drawNoteParticle,
     drawGrappleLine, drawArenaBorder, drawConfetti,
     drawObstacles, drawSuddenDeathZone,
     drawTrail, drawBoomerang, drawPortal, drawOrbitalShield
@@ -100,6 +100,7 @@ function showMainMenu() {
     state.projectiles = [];
     state.particles = [];
     state.floatingTexts = [];
+    state.noteParticles = [];
     state.hazards = [];
     state.hexZones = [];
     state.hexProjectiles = [];
@@ -527,6 +528,7 @@ function gameLoop(timestamp) {
 
         state.particles.forEach(p => p.update(simDt));
         state.floatingTexts.forEach(ft => ft.update(simDt));
+        state.noteParticles.forEach(np => np.update(simDt));
 
         // Hazard update â€” each hazard finds opposing-team balls
         state.hazards.forEach(h => {
@@ -555,6 +557,7 @@ function gameLoop(timestamp) {
         state.projectiles   = state.projectiles.filter(p => p.active);
         state.particles     = state.particles.filter(p => p.life > 0);
         state.floatingTexts = state.floatingTexts.filter(ft => ft.life > 0);
+        state.noteParticles = state.noteParticles.filter(np => np.life > 0);
         state.hazards       = state.hazards.filter(h => h.active);
         state.hexZones      = state.hexZones.filter(hz => hz.active);
         state.hexProjectiles = state.hexProjectiles.filter(p => p.active);
@@ -588,6 +591,7 @@ function gameLoop(timestamp) {
         state.particles.forEach(p => drawParticle(ctx, p));
         state.balls.filter(b => b.hp > 0).forEach(b => drawBall(ctx, b));
         state.floatingTexts.forEach(ft => drawFloatingText(ctx, ft));
+        state.noteParticles.forEach(np => drawNoteParticle(ctx, np));
 
         drawArenaBorder(ctx, VIRTUAL_W, VIRTUAL_H);
         if (state.suddenDeath) drawSuddenDeathZone(ctx, VIRTUAL_W, VIRTUAL_H, state.shrinkInset);
@@ -660,9 +664,11 @@ function gameLoop(timestamp) {
         state.confetti.forEach(c => c.update(simDt));
         state.particles.forEach(p => p.update(simDt));
         state.floatingTexts.forEach(ft => ft.update(simDt));
+        state.noteParticles.forEach(np => np.update(simDt));
         state.confetti      = state.confetti.filter(c => c.life > 0);
         state.particles     = state.particles.filter(p => p.life > 0);
         state.floatingTexts = state.floatingTexts.filter(ft => ft.life > 0);
+        state.noteParticles = state.noteParticles.filter(np => np.life > 0);
 
         ctx.save();
         ctx.translate(offsetX, offsetY);
@@ -675,6 +681,7 @@ function gameLoop(timestamp) {
         state.particles.forEach(p => drawParticle(ctx, p));
         drawBall(ctx, winner);
         state.floatingTexts.forEach(ft => drawFloatingText(ctx, ft));
+        state.noteParticles.forEach(np => drawNoteParticle(ctx, np));
 
         // Splash text: scale in with slight overshoot
         const t = Math.min(1, winAnimTime / 0.45);
@@ -737,7 +744,7 @@ export function pauseForSim() {
 
 export function resumeFromSim() {
     state.balls = []; state.ball1 = null; state.ball2 = null;
-    state.projectiles = []; state.particles = []; state.floatingTexts = [];
+    state.projectiles = []; state.particles = []; state.floatingTexts = []; state.noteParticles = [];
     state.hazards = []; state.hexZones = []; state.hexProjectiles = []; state.trails = []; state.boomerangs = [];
     state.shields = []; state.portals = []; state.confetti = []; state.obstacles = [];
     state.matchTime = 0; state.suddenDeath = false; state.shrinkInset = 0;
