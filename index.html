@@ -9,18 +9,8 @@
 </head>
 <body class="h-screen w-screen flex flex-col md:flex-row">
 
-    <!-- Left Panel: Tournament Bracket, Roster & Leaderboard -->
+    <!-- Left Panel: Tournament Bracket & Roster -->
     <div id="left-panel" class="w-full md:w-[45%] flex-shrink-0 bg-slate-800 flex flex-col border-b md:border-b-0 md:border-r border-slate-700 h-1/2 md:h-full z-20 shadow-2xl">
-
-        <!-- Tab bar -->
-        <div class="flex bg-slate-900 border-b border-slate-700 flex-shrink-0">
-            <button id="tab-bracket" onclick="switchTab('bracket')"
-                    class="tab-btn flex-1 font-bold tracking-wider text-slate-200 border-b-2 border-indigo-500 py-2"
-                    style="font-size: clamp(9px, 1vw, 17px)">BRACKET</button>
-            <button id="tab-leaderboard" onclick="switchTab('leaderboard')"
-                    class="tab-btn flex-1 font-bold tracking-wider text-slate-500 border-b-2 border-transparent py-2"
-                    style="font-size: clamp(9px, 1vw, 17px)">LEADERBOARD</button>
-        </div>
 
         <!-- Fighter detail panel (shown during balance sim) -->
         <div id="sim-fighter-panel" class="hidden flex-col flex-1 min-h-0">
@@ -35,12 +25,6 @@
             </div>
         </div>
 
-        <!-- Leaderboard view (hidden by default) -->
-        <div id="view-leaderboard" class="hidden flex-1 overflow-y-auto p-3">
-            <div id="leaderboard-container" class="space-y-1">
-                <div class="text-slate-500 italic p-3" style="font-size: clamp(11px, 1.1vw, 18px)">Loading…</div>
-            </div>
-        </div>
     </div>
 
     <!-- Right Panel: Arena -->
@@ -180,23 +164,6 @@
         </div>
     </div>
 
-    <script>
-        function switchTab(tab) {
-            const isBracket = tab === 'bracket';
-            document.getElementById('view-bracket').classList.toggle('hidden', !isBracket);
-            document.getElementById('view-bracket').classList.toggle('flex', isBracket);
-            document.getElementById('view-leaderboard').classList.toggle('hidden', isBracket);
-            document.getElementById('tab-bracket').classList.toggle('text-slate-200', isBracket);
-            document.getElementById('tab-bracket').classList.toggle('border-indigo-500', isBracket);
-            document.getElementById('tab-bracket').classList.toggle('text-slate-500', !isBracket);
-            document.getElementById('tab-bracket').classList.toggle('border-transparent', !isBracket);
-            document.getElementById('tab-leaderboard').classList.toggle('text-slate-200', !isBracket);
-            document.getElementById('tab-leaderboard').classList.toggle('border-indigo-500', !isBracket);
-            document.getElementById('tab-leaderboard').classList.toggle('text-slate-500', isBracket);
-            document.getElementById('tab-leaderboard').classList.toggle('border-transparent', isBracket);
-            if (!isBracket) window.dispatchEvent(new Event('leaderboard:show'));
-        }
-    </script>
     <script type="module" src="js/game.ts"></script>
 </body>
 </html>

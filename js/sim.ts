@@ -351,7 +351,6 @@ export function openSimPanel() {
 
     // Show fighter detail panel in left panel
     document.getElementById('view-bracket').classList.add('hidden');
-    document.getElementById('view-leaderboard').classList.add('hidden');
     const fp = document.getElementById('sim-fighter-panel');
     fp.classList.remove('hidden');
     fp.style.display = 'flex';

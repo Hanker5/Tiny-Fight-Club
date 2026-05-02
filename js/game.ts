@@ -20,24 +20,6 @@ import {
 } from './ui';
 import type { TournamentFormat, SwissSettings, SwissStanding, SwissMatch } from './types';
 
-// Record each match result to the backend â€” fire-and-forget, never throws.
-emitter.on('match:end', async ({ winner, loser, round, duration, custom }) => {
-    if (custom) return;
-    try {
-        await fetch('/api/record-match', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                winnerName:    winner.name,
-                loserName:     loser.name,
-                winnerAbility: winner.abilityName,
-                loserAbility:  loser.abilityName,
-                round,
-                duration
-            })
-        });
-    } catch { /* network failure â€” game continues unaffected */ }
-});
 
 let simPaused = false;
 

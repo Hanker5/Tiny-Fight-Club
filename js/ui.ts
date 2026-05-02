@@ -428,45 +428,6 @@ export function showQuickFightPicker(allDefs, onStart, onBack) {
     overlay.classList.remove('hidden');
 }
 
-// â”€â”€â”€ Leaderboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-async function renderLeaderboard() {
-    const container = document.getElementById('leaderboard-container');
-    if (!container) return;
-
-    container.innerHTML = `<div class="text-slate-500 italic p-3" style="font-size:clamp(11px,1.1vw,18px)">Loadingâ€¦</div>`;
-
-    try {
-        const res  = await fetch('/api/leaderboard');
-        if (!res.ok) throw new Error(res.statusText);
-        const data = await res.json();
-
-        const rowSize   = 'clamp(10px, 1.05vw, 18px)';
-        const labelSize = 'clamp(9px, 0.85vw, 14px)';
-
-        let html = `<h3 class="text-slate-400 font-bold uppercase tracking-wider mb-2" style="font-size:clamp(11px,1.2vw,20px)">All-Time Wins</h3>`;
-        html += `<div class="space-y-1">`;
-
-        data.forEach((entry, i) => {
-            const medal = i === 0 ? 'ðŸ¥‡' : i === 1 ? 'ðŸ¥ˆ' : i === 2 ? 'ðŸ¥‰' : `${i + 1}.`;
-            html += `<div class="flex items-center gap-2 bg-slate-800/60 rounded px-2 py-1 border border-slate-700/50">
-                        <span class="text-slate-400 w-6 text-center flex-shrink-0" style="font-size:${labelSize}">${medal}</span>
-                        <span class="font-bold text-slate-100 flex-1 truncate" style="font-size:${rowSize}">${entry.name}</span>
-                        <span class="text-indigo-400 font-semibold flex-shrink-0" style="font-size:${rowSize}">${entry.wins}W</span>
-                     </div>`;
-        });
-
-        html += `</div>`;
-        container.innerHTML = html;
-    } catch {
-        container.innerHTML = `<div class="text-slate-500 italic p-3" style="font-size:clamp(11px,1.1vw,18px)">Leaderboard unavailable.</div>`;
-    }
-}
-
-// Refresh leaderboard whenever the tab becomes visible
-window.addEventListener('leaderboard:show', renderLeaderboard);
-// Also refresh after each tournament ends
-emitter.on('tournament:end', renderLeaderboard);
 
 // ─── SWISS UI ──────────────────────────────────────────────────────────────────
 
