@@ -72,7 +72,7 @@ export function resolveCollision(b1, b2) {
                     } else {
                         b2.takeDamage(dmg2, b1);
                         if (b1.abilityName === 'Poison') {
-                            b2.poisoned = 3.5;
+                            b2.poisoned = 2.8;
                             emitter.emit('ball:poisoned', { ball: b2 });
                         }
                     }
@@ -92,7 +92,7 @@ export function resolveCollision(b1, b2) {
                     } else {
                         b1.takeDamage(dmg1, b2);
                         if (b2.abilityName === 'Poison') {
-                            b1.poisoned = 3.5;
+                            b1.poisoned = 2.8;
                             emitter.emit('ball:poisoned', { ball: b1 });
                         }
                     }

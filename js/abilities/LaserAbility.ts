@@ -8,7 +8,7 @@ import { emitter } from '../events';
 
 export class LaserAbility extends Ability {
     readonly name = 'Laser';
-    readonly cooldownDuration = 1.33;
+    readonly cooldownDuration = 1.36;
 
     getBehaviorHint(ball: Ball, enemy: Ball): BehaviorMode | null {
         const dx = enemy.x - ball.x, dy = enemy.y - ball.y;
@@ -37,7 +37,7 @@ export class LaserAbility extends Ability {
         if (Math.abs(normalizeAngle(ball.angle - leadAngle)) >= 0.15) return null;
         const px = ball.x + Math.cos(ball.angle) * (ball.r + 10);
         const py = ball.y + Math.sin(ball.angle) * (ball.r + 10);
-        state.projectiles.push(new Projectile(px, py, enemy, ball, ball.angle, false, 18, 20));
+        state.projectiles.push(new Projectile(px, py, enemy, ball, ball.angle, false, 18, 19));
         ball.behaviorState = 'RETREATING';
         ball.behaviorTimer = 0.67;
         emitter.emit('fx:particles', { x: px, y: py, color: ball.color, count: 10, speed: 2 });

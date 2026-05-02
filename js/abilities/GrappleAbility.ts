@@ -5,7 +5,7 @@ import { emitter } from '../events';
 
 export class GrappleAbility extends Ability {
     readonly name = 'Grapple';
-    readonly cooldownDuration = 2.3;
+    readonly cooldownDuration = 2.7;
 
     getBehaviorHint(_ball: Ball, enemy: Ball): BehaviorMode | null {
         const dx = enemy.x - _ball.x, dy = enemy.y - _ball.y;

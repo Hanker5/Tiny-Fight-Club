@@ -219,7 +219,7 @@ export class Ball {
             this.poisonTickTimer += dt;
             if (this.poisonTickTimer >= 0.25) {
                 this.poisonTickTimer -= 0.25;
-                this.takeDamage(1.5, null);
+                this.takeDamage(1.45, null);
                 emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#22c55e', count: 2, speed: 1 });
             }
         } else {
@@ -320,7 +320,7 @@ export class Ball {
 
             let activeSpeed = this.speed;
             if (this.abilityName === 'Berserk') activeSpeed *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.2;
-            if (this.rushStacks > 0) activeSpeed += Math.min(this.rushStacks * 0.4, 3.0);
+            if (this.rushStacks > 0) activeSpeed += Math.min(this.rushStacks * 0.5, 3.5);
             if (this.hexed > 0) activeSpeed *= 0.5;
 
             const angleDiff = normalizeAngle(targetAngle - this.angle);
@@ -506,7 +506,7 @@ export class BoomerangBlade {
         this.target = target;
         this.speed = 11;
         this.r = 22;
-        this.damage = source.baseDamage * 1.35;
+        this.damage = source.baseDamage * 1.15;
         this.color = source.color;
         this.active = true;
         this.phase = 'OUTGOING';
@@ -579,9 +579,9 @@ export class BoomerangBlade {
         this.source.momentumArmor = 0;
         // Reset the correct cooldown slot (primary or stolen ability)
         if (this.abilityRef && this.abilityRef !== this.source.ability) {
-            this.abilityRef.cooldown = 2.8;
+            this.abilityRef.cooldown = 2.6;
         } else {
-            this.source.abilityCooldown = 2.8;
+            this.source.abilityCooldown = 2.6;
         }
     }
 }
@@ -788,7 +788,7 @@ export class HexZone {
 export class HexProjectile {
     x: number; y: number; source: Ball;
     r: number; active: boolean; life: number;
-    vx: number; vy: number;
+    vx: number; vy: number; passThroughBalls: boolean; hadBallInRange: boolean;
 
     constructor(x: number, y: number, targetX: number, targetY: number, source: Ball) {
         this.x = x; this.y = y;
@@ -796,6 +796,8 @@ export class HexProjectile {
         this.r = 25;
         this.active = true;
         this.life = 3.0;
+        this.passThroughBalls = false;
+        this.hadBallInRange = false;
         const angle = Math.atan2(targetY - y, targetX - x);
         const speed = 7;
         this.vx = Math.cos(angle) * speed;
@@ -832,9 +834,21 @@ export class HexProjectile {
         }
 
         const HEX_ZONE_R = 150;
+        let anyBallInZone = false;
         for (const ball of balls) {
             if (ball.team === this.source.team || ball.hp <= 0 || ball.intangible > 0) continue;
             if (Math.hypot(ball.x - this.x, ball.y - this.y) < HEX_ZONE_R) {
+                anyBallInZone = true;
+                break;
+            }
+        }
+
+        if (anyBallInZone) {
+            this.hadBallInRange = true;
+            this.passThroughBalls = true;
+        } else {
+            this.passThroughBalls = false;
+            if (this.hadBallInRange) {
                 this._land();
                 return;
             }

@@ -6,7 +6,7 @@ import { emitter } from '../events';
 
 export class SummonAbility extends Ability {
     readonly name = 'Summon';
-    readonly cooldownDuration = 7.0;
+    readonly cooldownDuration = 7.3;
 
     getBehaviorHint(ball: Ball, _enemy: Ball): BehaviorMode | null {
         return ball.abilityCooldown <= 0.5 ? 'FLANKING' : 'AGGRESSIVE';
@@ -18,9 +18,9 @@ export class SummonAbility extends Ability {
 
         const mDef = {
             ...ball.def,
-            hp:     Math.max(1, Math.floor(ball.maxHp * 0.18)),
-            maxHp:  Math.max(1, Math.floor(ball.maxHp * 0.18)),
-            damage: Math.max(1, Math.floor(ball.baseDamage * 0.18)),
+            hp:     Math.max(1, Math.floor(ball.maxHp * 0.25)),
+            maxHp:  Math.max(1, Math.floor(ball.maxHp * 0.25)),
+            damage: Math.max(1, Math.floor(ball.baseDamage * 0.25)),
             r: 28, mass: 0.4, speed: 4.5, name: 'Minion',
             ability: 'Berserk',
             stolenAbilities: [],

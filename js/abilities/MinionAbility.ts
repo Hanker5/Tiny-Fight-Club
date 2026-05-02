@@ -6,7 +6,7 @@ import { state } from '../state';
 
 export class MinionAbility extends Ability {
     readonly name = 'Minion';
-    readonly cooldownDuration = 0.25;
+    readonly cooldownDuration = 0.27;
 
     getBehaviorHint(_ball: Ball, enemy: Ball): BehaviorMode | null {
         const dx = enemy.x - _ball.x, dy = enemy.y - _ball.y;

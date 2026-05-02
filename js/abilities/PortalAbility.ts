@@ -7,7 +7,7 @@ import { emitter } from '../events';
 
 export class PortalAbility extends Ability {
     readonly name = 'Portal';
-    readonly cooldownDuration = 5.5;
+    readonly cooldownDuration = 5.0;
 
     getBehaviorHint(ball: Ball, _enemy: Ball): BehaviorMode | null {
         const hasPortal = state.portals.some(p => p.source === ball && p.active);

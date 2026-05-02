@@ -15,7 +15,7 @@ export class ReflectAbility extends Ability {
 
     onHitReceived(defender: Ball, attacker: Ball | null, amount: number): void {
         if (!attacker || defender.hp <= 0) return;
-        const reflected = amount * 0.3;
+        const reflected = amount * 0.35;
         attacker.takeDamage(reflected, defender, true);
         emitter.emit('fx:particles', { x: defender.x, y: defender.y, color: '#14b8a6', count: 5, speed: 2 });
     }
