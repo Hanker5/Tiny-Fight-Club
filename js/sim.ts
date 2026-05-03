@@ -498,7 +498,7 @@ function _onResultsClick(e) {
     _drawFighterCard(_selectedFighterName, _engine ? _engine.results : _savedResults);
 }
 
-// â”€â”€â”€ Canvas Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Canvas Helpers 
 
 function _getCanvasCtx() {
     const canvas = document.getElementById('sim-fighter-canvas');
@@ -626,7 +626,7 @@ function _drawFighterCard(name, results) {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, cssW, cssH * 0.4);
 
-    // â”€â”€ Avatar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Avatar 
     const avR = Math.min(cssW * 0.13, 58);
     const avX = cssW / 2;
     curY += avR + pad;
@@ -691,7 +691,7 @@ function _drawFighterCard(name, results) {
 
     curY += avR + 14;
 
-    // â”€â”€ Name â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Name 
     let nameFontSize = Math.min(cssW * 0.072, 24);
     ctx.textAlign = 'center';
     ctx.font = `bold ${nameFontSize}px system-ui, sans-serif`;
@@ -706,12 +706,12 @@ function _drawFighterCard(name, results) {
     if (def.player) {
         ctx.font = `italic ${Math.round(nameFontSize * 0.68)}px system-ui, sans-serif`;
         ctx.fillStyle = '#94a3b8';
-        ctx.fillText('â€¢ ' + def.player, cssW / 2, curY);
+        ctx.fillText(def.player, cssW / 2, curY);
         curY += Math.round(nameFontSize * 0.68) + 4;
     }
     curY += 10;
 
-    // â”€â”€ Win / Loss Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Win / Loss Summary 
     if (hasResults) {
         let totalW = 0, totalL = 0, totalD = 0;
         for (const rec of Object.values(results[name])) {
@@ -759,7 +759,7 @@ function _drawFighterCard(name, results) {
     ctx.stroke();
     curY += 10;
 
-    // â”€â”€ Stat Bars â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Stat Bars 
     ctx.font = '10px system-ui, sans-serif';
     ctx.fillStyle = '#64748b';
     ctx.textAlign = 'left';
@@ -822,7 +822,7 @@ function _drawFighterCard(name, results) {
     ctx.stroke();
     curY += 10;
 
-    // â”€â”€ Ability â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Ability 
     ctx.textAlign = 'left';
     ctx.font = '10px system-ui, sans-serif';
     ctx.fillStyle = '#64748b';
@@ -848,7 +848,7 @@ function _drawFighterCard(name, results) {
     ctx.stroke();
     curY += 10;
 
-    // â”€â”€ Matchups â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    //  Matchups 
     if (!hasResults) {
         ctx.textAlign = 'center';
         ctx.font = 'italic 12px system-ui, sans-serif';
