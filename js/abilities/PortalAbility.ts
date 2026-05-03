@@ -25,6 +25,7 @@ export class PortalAbility extends Ability {
         const by = Math.max(60, Math.min(arena.height - 60, enemy.y + Math.sin(toEnemy) * (enemy.r + 55)));
 
         state.portals.push(new PortalPair(ax, ay, bx, by, ball));
+        emitter.emit('ability:used', { ball, ability: 'Portal', x: ax, y: ay });
         emitter.emit('fx:particles', { x: ax, y: ay, color: ball.color, count: 20, speed: 3 });
         emitter.emit('fx:particles', { x: bx, y: by, color: ball.color, count: 20, speed: 3 });
         return this.cooldownDuration;

@@ -3,6 +3,7 @@ import type { Ball } from '../entities';
 import { Projectile } from '../entities';
 import type { ArenaSize, BehaviorMode } from '../types';
 import { state } from '../state';
+import { emitter } from '../events';
 
 export class MinionAbility extends Ability {
     readonly name = 'Minion';
@@ -22,6 +23,7 @@ export class MinionAbility extends Ability {
         p.r = 5.25;
         p.life = 5.0;
         state.projectiles.push(p);
+        emitter.emit('ability:used', { ball, ability: 'Minion', x: ball.x, y: ball.y });
         return this.cooldownDuration;
     }
 }

@@ -19,7 +19,9 @@ import {
     showSwissSettingsOverlay, renderSwissStandings
 } from './ui';
 import type { TournamentFormat, SwissSettings, SwissStanding, SwissMatch } from './types';
+import { soundManager } from './sound';
 
+soundManager.init();
 
 let simPaused = false;
 

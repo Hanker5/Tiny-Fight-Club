@@ -3,6 +3,7 @@ import type { Ball } from '../entities';
 import { BoomerangBlade } from '../entities';
 import type { ArenaSize, BehaviorMode } from '../types';
 import { state } from '../state';
+import { emitter } from '../events';
 
 export class BoomerangAbility extends Ability {
     readonly name = 'Boomerang';
@@ -32,6 +33,7 @@ export class BoomerangAbility extends Ability {
         state.boomerangs.push(blade);
         ball.momentumArmor = 0.3;
         ball.boomerangOut = true;
+        emitter.emit('ability:used', { ball, ability: 'Boomerang', x: ball.x, y: ball.y });
         // Cooldown is managed by blade._catch() — return 9999 to block re-triggering
         return this.cooldownDuration;
     }

@@ -154,6 +154,8 @@ export class Ball {
             amount = amount * (1 - this.momentumArmor);
         }
 
+        const wasAlive = this.hp > 0;
+
         if (this.shield > 0) {
             this.shield -= amount;
             if (this.shield < 0) {
@@ -162,6 +164,10 @@ export class Ball {
             }
         } else {
             this.hp -= amount;
+        }
+
+        if (wasAlive && this.hp <= 0) {
+            emitter.emit('ball:die', { ball: this });
         }
 
         // Ability hit effects — skipped for reflected damage to prevent loops
@@ -818,6 +824,7 @@ export class HexProjectile {
     _land(): void {
         this.active = false;
         state.hexZones.push(new HexZone(this.x, this.y, this.source));
+        emitter.emit('hex:zone:land', { x: this.x, y: this.y });
         emitter.emit('fx:particles', { x: this.x, y: this.y, color: '#dc143c', count: 18, speed: 5, size: 3 });
     }
 

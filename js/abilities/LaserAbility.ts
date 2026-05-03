@@ -40,6 +40,7 @@ export class LaserAbility extends Ability {
         state.projectiles.push(new Projectile(px, py, enemy, ball, ball.angle, false, 18, 19));
         ball.behaviorState = 'RETREATING';
         ball.behaviorTimer = 0.67;
+        emitter.emit('ability:used', { ball, ability: 'Laser', x: px, y: py });
         emitter.emit('fx:particles', { x: px, y: py, color: ball.color, count: 10, speed: 2 });
         return this.cooldownDuration;
     }

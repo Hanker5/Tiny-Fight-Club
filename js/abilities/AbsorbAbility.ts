@@ -35,6 +35,7 @@ export class AbsorbAbility extends Ability {
         ball.def.stolenAbilities = ball.stolenAbilities.map(a => a.name);
         ball.hasAbsorbed = true;
 
+        emitter.emit('ability:used', { ball, ability: 'Absorb', x: ball.x, y: ball.y });
         emitter.emit('fx:text', { text: 'ABSORBED!', x: ball.x, y: ball.y - ball.r - 45, color: ball.color });
         emitter.emit('fx:particles', { x: ball.x, y: ball.y, color: ball.color, count: 20, speed: 4 });
         return this.cooldownDuration;
