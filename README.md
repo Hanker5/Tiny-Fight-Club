@@ -1,19 +1,16 @@
 # Tiny Fight Club
 
-A browser-based 2D tournament simulator where 30 AI-controlled ball fighters compete in a single-elimination bracket. Sit back and watch — there's no player input during fights.
+A browser-based 2D tournament simulator where 29 AI-controlled ball fighters compete in a single-elimination bracket. Sit back and watch — there's no player input during fights.
 
 **[Play it live →](https://tiny-fight-club.vercel.app)**
 
 ## Fighters
 
-30 unique fighters, each with a distinct ability:
+29 unique fighters, each with a distinct ability:
 
 | Fighter | Ability | Playstyle |
 |---------|---------|-----------|
-| Dash | Dash | High speed, dashes forward to strike |
 | Titan | Heavy | Massive, high HP, turns slowly |
-| Dracula | Vampire | Heals 25% of damage dealt by its weapon |
-| Ninja | Teleport | Periodically teleports behind the opponent |
 | Zerk | Berserk | Damage and speed increase as HP drops |
 | Paladin | Shield | Periodically regenerates a protective shield |
 | Venom | Poison | Frontal strikes apply dangerous Damage-Over-Time |
@@ -21,17 +18,16 @@ A browser-based 2D tournament simulator where 30 AI-controlled ball fighters com
 | Spike | Trap | Leaves volatile traps behind |
 | Sniper | Laser | Fires fast, non-homing piercing shots |
 | Hook | Grapple | Violently pulls the enemy towards itself |
-| Ghost | Phase | Periodically becomes intangible to attacks |
 | Pulsar | Pulse | Emits a repelling, damaging energy shockwave |
 | Swarm | Minion | Spawns small homing drones to harass |
 | Thorn | Reflect | Reflects 30% of taken damage back to attacker |
-| Comet | Charge | Builds massive momentum in a straight line |
-| Lil Lethal | Vampire | Heals 25% of damage dealt by its weapon |
+| Lil Lethal | Vampire | Heals 28% of damage dealt by its weapon |
 | Stick Man | Clone | Spawns a clone that flanks from the opposite side |
 | Legion | Summon | Periodically summons small minions |
 | CrazedAngelus | Immunity | Periodically becomes completely immune to all damage |
 | Dirty Dave | Absorb | Absorbs an enemy ability each round (up to 3 stolen) |
 | Tron | Trail | Leaves a damaging neon trail that walls off the arena |
+| Ninja | Teleport | Periodically teleports behind the opponent |
 | Ball Slayer | Boomerang | Hurls a boomerang blade that damages on throw and return |
 | The Gravy Train | SpeedRush | Gains speed every time it gets hit |
 | Jimbo | Portal | Creates portals to teleport behind the enemy |
@@ -40,6 +36,9 @@ A browser-based 2D tournament simulator where 30 AI-controlled ball fighters com
 | KayeeK | Phase | Periodically becomes intangible to attacks |
 | Snickerdoodle | Hex | Throws a hex zone — slows, pulls, and scorches enemies inside |
 | Bombastic Bubbles | ShieldBurst | Orbiting shields absorb damage, then launch as projectiles |
+| Beyblade | RapidSpin | Launches at full speed in a random direction — head-on hits deal massive bonus damage |
+| Smelya | Tempo | Builds momentum stacks on hits; at max stacks, bursts into high speed and rapid HP regen |
+| Sons of Provo | Shriek | Unleashes a piercing shriek that freezes any opponent caught in its wide radius |
 
 ## Running Locally
 
@@ -87,7 +86,8 @@ game.ts (requestAnimationFrame loop)
 | `js/ui.ts` | DOM: bracket visualization, roster, leaderboard, overlay modal |
 | `js/fx.ts` | Particle system, floating damage text |
 | `js/events.ts` | Tiny `EventEmitter` singleton (`emitter`) |
-| `js/data.ts` | 30 fighter stat/ability definitions |
+| `js/sound.ts` | `SoundManager` — loads `.wav` files, subscribes to game events, plays ability/hit/death sounds |
+| `js/data.ts` | 29 fighter stat/ability definitions |
 | `js/types.ts` | Shared types: `FighterDef`, `BehaviorMode`, `ArenaSize`, `GamePhase` |
 | `js/sim.ts` | `SimEngine` — batch simulations between all fighter pairs |
 | `js/utils.ts` | Utility functions (e.g., `normalizeAngle`) |

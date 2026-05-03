@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Tiny Fight Club is a browser-based 2D tournament simulator where 30 AI-controlled ball fighters compete in a single-elimination bracket. Players watch matches unfold — there is no player input during fights. The game is written in TypeScript + Canvas, built with Vite, with a small Vercel serverless API for persistent leaderboard/history tracking.
+Tiny Fight Club is a browser-based 2D tournament simulator where 29 AI-controlled ball fighters compete in a single-elimination bracket. Players watch matches unfold — there is no player input during fights. The game is written in TypeScript + Canvas, built with Vite, with a small Vercel serverless API for persistent leaderboard/history tracking.
 
 ## Running Locally
 
@@ -53,7 +53,8 @@ game.ts (requestAnimationFrame loop)
 | `js/ui.ts` | DOM: bracket visualization, roster, leaderboard, overlay modal |
 | `js/fx.ts` | Particle system, floating damage text — event-driven spawning |
 | `js/events.ts` | Tiny custom `EventEmitter` singleton (`emitter`) |
-| `js/data.ts` | 30 fighter stat/ability definitions (`FighterDef[]`) |
+| `js/sound.ts` | `SoundManager` — loads `.wav` files from `/sounds/`, subscribes to game events, plays ability/hit/death audio |
+| `js/data.ts` | 29 fighter stat/ability definitions (`FighterDef[]`) |
 | `js/types.ts` | Shared TypeScript types: `FighterDef`, `BehaviorMode`, `ArenaSize`, `GamePhase` |
 | `js/sim.ts` | `SimEngine` — runs batch simulations between all fighter pairs |
 | `js/utils.ts` | Utility functions (e.g., `normalizeAngle`) |
@@ -113,6 +114,20 @@ No changes to `Ball` or any other file are needed.
 
 `game.ts` sets up HiDPI scaling using `devicePixelRatio` and CSS transform scaling to fit the arena in the viewport. All game coordinates are in logical pixels; the canvas physical size is multiplied by DPR.
 
+### Sound System
+
+`sound.ts` exports a `SoundManager` singleton that loads `.wav` files from `/sounds/` via the Web Audio API and plays them in response to game events:
+
+| Event | Sound(s) |
+|-------|----------|
+| `ability:used` | Per-ability sound (Absorb, Boomerang, Dash, Grapple, Hex, Laser, Minion, Phase, Portal, Pulse, Shield, Shriek ×4 variants, Teleport, Tempo) |
+| `ball:hit` | `BallHurt1` or `BallHurt2` (random; throttled to once per 150 ms; skips minions/decoys/clones) |
+| `ball:die` | `BallDie` (skips minions/decoys/clones) |
+| `ball:poisoned` | `Poison` |
+| `hex:zone:land` | `HexZone` |
+
+The Minion ability sound is additionally throttled to once per 2 s to avoid rapid-fire repetition. The context is lazily resumed on first play to satisfy browser autoplay policy.
+
 ## TypeScript Notes
 
 - `strict: false` — types are loose; tighten incrementally
@@ -133,3 +148,4 @@ See [PLANNED IMPROVEMENTS.md](PLANNED IMPROVEMENTS.md) for the full roadmap. Hig
 - ~~Arena obstacles~~ ✅ — 4 static pillars placed symmetrically
 - ~~TypeScript migration~~ ✅ — Vite + tsc, `strict: false`
 - ~~Ability system refactor~~ ✅ — Each ability is its own class in `js/abilities/`
+- ~~Sound effects~~ ✅ — `SoundManager` in `sound.ts`; Web Audio API, per-ability + hit/death sounds

@@ -34,6 +34,10 @@ class SoundManager {
     private buffers = new Map<SoundName, AudioBuffer>();
     private lastMinionPlay = 0;
     private lastHurtPlay = 0;
+    private muted = false;
+
+    mute()   { this.muted = true; }
+    unmute() { this.muted = false; }
 
     async init() {
         try {
@@ -56,7 +60,7 @@ class SoundManager {
     }
 
     private play(name: SoundName) {
-        if (!this.ctx || !this.buffers.has(name)) return;
+        if (this.muted || !this.ctx || !this.buffers.has(name)) return;
         // Resume context if suspended (browser autoplay policy)
         if (this.ctx.state === 'suspended') this.ctx.resume();
         const src = this.ctx.createBufferSource();

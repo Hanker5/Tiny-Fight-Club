@@ -1076,10 +1076,12 @@ window.onload = () => {
 
 export function pauseForSim() {
     simPaused = true;
+    soundManager.mute();
     if (state.autoStartTimer) { clearTimeout(state.autoStartTimer); state.autoStartTimer = null; }
 }
 
 export function resumeFromSim() {
+    soundManager.unmute();
     state.balls = []; state.ball1 = null; state.ball2 = null;
     state.projectiles = []; state.particles = []; state.floatingTexts = []; state.noteParticles = [];
     state.hazards = []; state.hexZones = []; state.hexProjectiles = []; state.trails = []; state.boomerangs = [];
