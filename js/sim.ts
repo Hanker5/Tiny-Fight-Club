@@ -326,10 +326,10 @@ const MAX_MASS = 3;
 const MAX_RADIUS = 88;
 
 const TIER_THRESHOLDS = [
-    { label: 'S', min: 54, color: '#f59e0b' },
-    { label: 'A', min: 52, color: '#22c55e' },
-    { label: 'B', min: 50, color: '#3b82f6' },
-    { label: 'C', min: 45, color: '#f97316' },
+    { label: 'S', min: 53, color: '#f59e0b' },
+    { label: 'A', min: 50, color: '#22c55e' },
+    { label: 'B', min: 47, color: '#3b82f6' },
+    { label: 'C', min: 44, color: '#f97316' },
     { label: 'D', min: 40,  color: '#ef4444' },
 ];
 
