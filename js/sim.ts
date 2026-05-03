@@ -317,6 +317,7 @@ class SimEngine {
 let _engine = null;
 let _selectedFighterName = null;
 let _lastMatchesPerPair: number = 20;
+let _savedResults = null;
 
 const MAX_HP  = 172;
 const MAX_SPD = 6.2;
@@ -367,6 +368,7 @@ export function openSimPanel() {
         .then(data => {
             if (!data) return;
             const date = new Date(data.timestamp).toLocaleDateString();
+            _savedResults = data.results;
             document.getElementById('sim-status').textContent = `Saved results from ${date}`;
             document.getElementById('sim-progress-bar').style.width = '100%';
             _renderResults(data.results, baseBalls);
@@ -421,6 +423,7 @@ function _onComplete(results) {
     document.getElementById('sim-run-btn').disabled       = false;
     document.getElementById('sim-status').textContent     = 'Complete';
     document.getElementById('sim-progress-bar').style.width = '100%';
+    _savedResults = results;
     _renderResults(results, _engine.defs);
     _renderH2H(results, _engine.defs);
     fetch('/api/sim-results', {
@@ -492,7 +495,7 @@ function _onResultsClick(e) {
     const row = e.target.closest('tr[data-fighter]');
     if (!row) return;
     _selectedFighterName = row.dataset.fighter;
-    _drawFighterCard(_selectedFighterName, _engine ? _engine.results : null);
+    _drawFighterCard(_selectedFighterName, _engine ? _engine.results : _savedResults);
 }
 
 // â”€â”€â”€ Canvas Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
