@@ -511,7 +511,12 @@ function advanceSwissRound() {
     showOverlay(
         `Round ${state.swissRound + 1} of ${settings.numRounds}`,
         'New pairings are ready.',
-        `Start Round ${state.swissRound + 1}`, startNextSwissMatch
+        `Start Round ${state.swissRound + 1}`,
+        () => { clearTimeout(state.autoStartTimer); startNextSwissMatch(); }
+    );
+    state.autoStartTimer = setTimeout(
+        () => { if (state.gameState === 'BRACKET') startNextSwissMatch(); },
+        5000
     );
 }
 
