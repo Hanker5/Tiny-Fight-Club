@@ -11,7 +11,7 @@ const STEPS_PER_CHUNK = 360;   // ~6 sim-seconds per chunk; keeps tasks well und
 const MAX_STEPS       = 7200;  // 120 sim-seconds hard cap per match
 const MARGIN          = 120;
 
-// â”€â”€â”€ SimEngine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// SimEngine
 
 class SimEngine {
     constructor(defs, matchesPerPair) {
@@ -312,10 +312,11 @@ class SimEngine {
     }
 }
 
-// â”€â”€â”€ SimUI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  SimUI 
 
 let _engine = null;
 let _selectedFighterName = null;
+let _lastMatchesPerPair: number = 20;
 
 const MAX_HP  = 172;
 const MAX_SPD = 6.2;
@@ -324,11 +325,11 @@ const MAX_MASS = 3;
 const MAX_RADIUS = 88;
 
 const TIER_THRESHOLDS = [
-    { label: 'S', min: 55, color: '#f59e0b' },
-    { label: 'A', min: 50, color: '#22c55e' },
-    { label: 'B', min: 45, color: '#3b82f6' },
-    { label: 'C', min: 40, color: '#f97316' },
-    { label: 'D', min: 0,  color: '#ef4444' },
+    { label: 'S', min: 54, color: '#f59e0b' },
+    { label: 'A', min: 52, color: '#22c55e' },
+    { label: 'B', min: 50, color: '#3b82f6' },
+    { label: 'C', min: 45, color: '#f97316' },
+    { label: 'D', min: 40,  color: '#ef4444' },
 ];
 
 export function openSimPanel() {
@@ -359,6 +360,19 @@ export function openSimPanel() {
 
     // Click delegation on results table
     document.getElementById('sim-results-table').addEventListener('click', _onResultsClick);
+
+    // Load previously saved sim results
+    fetch('/api/sim-results')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+            if (!data) return;
+            const date = new Date(data.timestamp).toLocaleDateString();
+            document.getElementById('sim-status').textContent = `Saved results from ${date}`;
+            document.getElementById('sim-progress-bar').style.width = '100%';
+            _renderResults(data.results, baseBalls);
+            _renderH2H(data.results, baseBalls);
+        })
+        .catch(() => {});
 }
 
 function _closePanel() {
@@ -383,6 +397,7 @@ function _startRun() {
     if (_engine) { _engine.abort(); }
 
     const matchesPerPair = Math.max(1, parseInt(document.getElementById('sim-matches-input').value, 10) || 20);
+    _lastMatchesPerPair = matchesPerPair;
     const defs = baseBalls;
 
     document.getElementById('sim-run-btn').disabled        = true;
@@ -408,6 +423,11 @@ function _onComplete(results) {
     document.getElementById('sim-progress-bar').style.width = '100%';
     _renderResults(results, _engine.defs);
     _renderH2H(results, _engine.defs);
+    fetch('/api/sim-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ results, matchesPerPair: _lastMatchesPerPair, timestamp: new Date().toISOString() }),
+    }).catch(() => {});
 }
 
 function _renderResults(results, defs) {
