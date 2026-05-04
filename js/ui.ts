@@ -459,6 +459,12 @@ export function renderSwissStandings() {
     // Remove Tailwind padding/centering so Swiss content fills the full area
     container.classList.remove('p-4', 'items-center');
 
+    const isComplete = !!state.swissChampion;
+
+    // Hide Active Fighters + Round panels when Swiss is over to give standings more room
+    const rosterContainer = document.getElementById('roster-container');
+    if (rosterContainer) rosterContainer.style.display = isComplete ? 'none' : '';
+
     const settings = state.swissSettings;
     const pairings = state.swissPairings || [];
     const round    = state.swissRound;
@@ -631,7 +637,7 @@ export function renderSwissStandings() {
             </div>
 
             <!-- Pairings — pinned to bottom, 2-column grid, capped height -->
-            <div style="flex-shrink:0;max-height:46%;overflow-y:auto;
+            ${!isComplete ? `<div style="flex-shrink:0;max-height:46%;overflow-y:auto;
                         padding:6px 8px 6px 6px;border-top:1px solid #131e2e">
                 <div style="${hdrStyle};margin-bottom:6px">
                     <span style="font-size:clamp(8px,0.75vw,11px);font-weight:800;text-transform:uppercase;letter-spacing:0.1em;color:#64748b">Round</span>
@@ -641,7 +647,7 @@ export function renderSwissStandings() {
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px">
                     ${pairCards}${byeCards}
                 </div>
-            </div>
+            </div>` : ''}
 
         </div>`;
 
