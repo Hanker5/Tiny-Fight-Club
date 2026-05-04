@@ -12,6 +12,10 @@ type SoundName = typeof SOUND_FILES[number];
 
 const SHRIEK_VARIANTS: SoundName[] = ['Shriek1', 'Shriek2', 'Shriek3', 'Shriek4'];
 
+const SOUND_VOLUME: Partial<Record<SoundName, number>> = {
+    Phase: 0.5,
+};
+
 const ABILITY_SOUND: Record<string, SoundName | SoundName[]> = {
     Absorb:    'Absorb',
     Boomerang: 'Boomerang',
@@ -61,11 +65,18 @@ class SoundManager {
 
     private play(name: SoundName) {
         if (this.muted || !this.ctx || !this.buffers.has(name)) return;
-        // Resume context if suspended (browser autoplay policy)
         if (this.ctx.state === 'suspended') this.ctx.resume();
         const src = this.ctx.createBufferSource();
         src.buffer = this.buffers.get(name)!;
-        src.connect(this.ctx.destination);
+        const volume = SOUND_VOLUME[name];
+        if (volume !== undefined) {
+            const gain = this.ctx.createGain();
+            gain.gain.value = volume;
+            src.connect(gain);
+            gain.connect(this.ctx.destination);
+        } else {
+            src.connect(this.ctx.destination);
+        }
         src.start(0);
     }
 
