@@ -13,7 +13,8 @@ type SoundName = typeof SOUND_FILES[number];
 const SHRIEK_VARIANTS: SoundName[] = ['Shriek1', 'Shriek2', 'Shriek3', 'Shriek4'];
 
 const SOUND_VOLUME: Partial<Record<SoundName, number>> = {
-    Phase: 0.5,
+    Phase: 0.3,
+    Laser: 0.6,
 };
 
 const ABILITY_SOUND: Record<string, SoundName | SoundName[]> = {
