@@ -239,6 +239,26 @@ export function drawBall(ctx, ball) {
         });
     }
 
+    if (ball.name === 'The Holy See' && ball.flash <= 0) {
+        const armW = ball.r * 0.22;
+        const vH   = ball.r * 0.70;
+        const hW   = ball.r * 0.50;
+        const cy   = -ball.r * 0.18;
+        ctx.save();
+        ctx.shadowColor = '#fbbf24';
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = '#fbbf24';
+        ctx.strokeStyle = '#020617';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.rect(-armW / 2, -vH, armW, vH * 2);
+        ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.rect(-hW, cy - armW / 2, hW * 2, armW);
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+    }
+
     ctx.restore();
     ctx.globalAlpha = 1.0;
 

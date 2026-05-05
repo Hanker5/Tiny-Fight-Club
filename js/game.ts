@@ -824,19 +824,19 @@ function gameLoop(timestamp) {
             state.obstacles.forEach(obs => resolveObstacleCollision(ball, obs));
         }
 
-        // Trail acts as a solid wall + damage zone for all non-source balls
+        // Trail segments damage opposing-team balls (DoT) — must happen before obstacle push
+        state.trails.forEach(t => {
+            const opponents = state.balls.filter(b => b.team !== t.source.team && b.hp > 0);
+            opponents.forEach(opp => t.update(opp, simDt));
+        });
+
+        // Trail acts as a solid wall for all non-source balls
         for (const seg of state.trails) {
             for (const ball of aliveBalls) {
                 if (ball === seg.source) continue;  // Tron passes through own trail
                 resolveObstacleCollision(ball, seg);
             }
         }
-
-        // Trail segments damage opposing-team balls (DoT)
-        state.trails.forEach(t => {
-            const opponents = state.balls.filter(b => b.team !== t.source.team && b.hp > 0);
-            opponents.forEach(opp => t.update(opp, simDt));
-        });
 
         // Portal pairs â€” teleport any ball that enters either portal
         state.portals.forEach(p => p.update(state.balls, simDt));

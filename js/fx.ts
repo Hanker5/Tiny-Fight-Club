@@ -75,6 +75,17 @@ export function createParticles(x, y, color, count, speed = 3, size = 3) {
     }
 }
 
+function createDirectionalParticles(x, y, color, count, speed, size, direction, spread) {
+    for (let i = 0; i < count; i++) {
+        const p = new Particle(x, y, color, 0, size);
+        const angle = direction + (Math.random() - 0.5) * spread;
+        const vel = speed * (0.4 + Math.random() * 0.9);
+        p.vx = Math.cos(angle) * vel;
+        p.vy = Math.sin(angle) * vel;
+        state.particles.push(p);
+    }
+}
+
 export function addFloatingText(text, x, y, color) {
     state.floatingTexts.push(new FloatingText(text, x, y, color));
 }
@@ -102,8 +113,12 @@ class NoteParticle {
 // Subscribe to simulation events and translate them into visual effects.
 // This keeps all FX logic here, out of the simulation classes.
 
-emitter.on('fx:particles', ({ x, y, color, count, speed = 3, size = 3 }) => {
-    createParticles(x, y, color, count, speed, size);
+emitter.on('fx:particles', ({ x, y, color, count, speed = 3, size = 3, direction, spread = Math.PI * 2 }) => {
+    if (direction !== undefined) {
+        createDirectionalParticles(x, y, color, count, speed, size, direction, spread);
+    } else {
+        createParticles(x, y, color, count, speed, size);
+    }
 });
 
 emitter.on('fx:notes', ({ notes }) => {

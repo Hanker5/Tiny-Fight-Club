@@ -1,7 +1,8 @@
 import { Ability } from './Ability';
 import type { Ball } from '../entities';
 import type { ArenaSize, BehaviorMode } from '../types';
-import { emitter } from '../events';
+
+const MAX_SPEED_BONUS = 5.0;
 
 export class SpeedRushAbility extends Ability {
     readonly name = 'SpeedRush';
@@ -12,8 +13,7 @@ export class SpeedRushAbility extends Ability {
         return 'AGGRESSIVE';
     }
 
-    onHitReceived(defender: Ball, _attacker: Ball | null, _amount: number): void {
-        defender.rushStacks++;
-        emitter.emit('fx:particles', { x: defender.x, y: defender.y, color: '#ef4444', count: 4, speed: 3 });
+    tick(ball: Ball, _enemy: Ball, _arena: ArenaSize, _dt: number): void {
+        ball.rushStacks = (1 - ball.hp / ball.maxHp) * MAX_SPEED_BONUS;
     }
 }

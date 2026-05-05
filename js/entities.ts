@@ -335,9 +335,29 @@ export class Ball {
                 }
             }
 
+            // Trail avoidance — non-retreating balls steer around enemy trail segments
+            if (this.behaviorState !== 'RETREATING' && state.trails.length > 0) {
+                const trailLookahead = 150;
+                const trailClearance = this.r + 20;
+                const rx = Math.cos(targetAngle), ry = Math.sin(targetAngle);
+                for (const seg of state.trails) {
+                    if (seg.source.team === this.team) continue;
+                    const sdx = seg.x - this.x, sdy = seg.y - this.y;
+                    if (Math.hypot(sdx, sdy) > trailLookahead + seg.r) continue;
+                    const proj = sdx * rx + sdy * ry;
+                    if (proj < 0) continue;
+                    const perpDist = Math.abs(sdx * ry - sdy * rx);
+                    if (perpDist < trailClearance + seg.r) {
+                        const cross = dx * ry - dy * rx;
+                        targetAngle += (cross >= 0 ? -1 : 1) * (Math.PI / 3);
+                        break;
+                    }
+                }
+            }
+
             let activeSpeed = this.speed;
             if (this.abilityName === 'Berserk') activeSpeed *= 1 + ((this.maxHp - this.hp) / this.maxHp) * 0.2;
-            if (this.rushStacks > 0) activeSpeed += Math.min(this.rushStacks * 0.5, 3.5);
+            if (this.rushStacks > 0) activeSpeed += this.rushStacks;
             if (this.hexed > 0) activeSpeed *= 0.5;
 
             const angleDiff = normalizeAngle(targetAngle - this.angle);
@@ -427,7 +447,8 @@ export class Hazard {
 
 export class TrailSegment {
     x: number; y: number; source: Ball;
-    r: number; active: boolean; life: number; maxLife: number; tickTimer: number; damage: number;
+    r: number; active: boolean; life: number; maxLife: number; damage: number;
+    damageCooldowns: Map<Ball, number>;
 
     constructor(x: number, y: number, source: Ball) {
         this.x = x; this.y = y; this.source = source;
@@ -435,23 +456,25 @@ export class TrailSegment {
         this.active = true;
         this.life = 6.0;
         this.maxLife = 6.0;
-        this.tickTimer = 0;
-        this.damage = 8;
+        this.damage = 4;
+        this.damageCooldowns = new Map();
     }
 
     update(enemy: Ball, dt: number): void {
         this.life -= dt;
         if (this.life <= 0) { this.active = false; return; }
+
+        for (const [ball, cd] of this.damageCooldowns) {
+            const next = cd - dt;
+            if (next <= 0) this.damageCooldowns.delete(ball);
+            else this.damageCooldowns.set(ball, next);
+        }
+
         if (enemy.intangible > 0 || enemy.immuneActive) return;
         const dist = Math.hypot(enemy.x - this.x, enemy.y - this.y);
-        if (dist < enemy.r + this.r) {
-            this.tickTimer += dt;
-            if (this.tickTimer >= 0.25) {
-                this.tickTimer -= 0.25;
-                enemy.takeDamage(this.damage, this.source);
-            }
-        } else {
-            this.tickTimer = 0;
+        if (dist < enemy.r + this.r && !this.damageCooldowns.has(enemy)) {
+            enemy.takeDamage(this.damage, this.source);
+            this.damageCooldowns.set(enemy, 0.5);
         }
     }
 }
@@ -691,7 +714,7 @@ export class Projectile {
     vx: number; vy: number;
     active: boolean; life: number; isSwarm: boolean;
 
-    constructor(x: number, y: number, target: Ball, source: Ball, startAngle: number, homing = true, speed = 8, damage = 10) {
+    constructor(x: number, y: number, target: Ball, source: Ball, startAngle: number, homing = true, speed = 8, damage = 10, color?: string) {
         this.x = x; this.y = y;
         this.target  = target;
         this.source  = source;
@@ -699,7 +722,7 @@ export class Projectile {
         this.speed   = speed;
         this.r       = homing ? 10.5 : 7;
         this.damage  = damage;
-        this.color   = source.color;
+        this.color   = color ?? source.color;
         this.vx      = Math.cos(startAngle) * speed;
         this.vy      = Math.sin(startAngle) * speed;
         this.active  = true;
