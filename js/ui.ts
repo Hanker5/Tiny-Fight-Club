@@ -185,6 +185,7 @@ export function renderBracket() {
 
 export function renderRoster() {
     const container = document.getElementById('roster-container');
+    if (container) container.style.display = '';
 
     let html = `<h3 class="text-slate-400 font-bold mb-3 uppercase tracking-wider" style="font-size: clamp(11px, 1.3vw, 24px)">Active Fighters</h3><div class="space-y-3">`;
 
