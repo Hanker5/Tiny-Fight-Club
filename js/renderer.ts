@@ -1,6 +1,9 @@
 // Pure rendering functions — no imports from state.js or game logic.
 // Each function receives only what it needs to draw.
 
+const holySeeImage = new Image();
+holySeeImage.src = '/images/The Holy See.png';
+
 // Color utility functions
 function hexToRgb(hex) {
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -239,23 +242,13 @@ export function drawBall(ctx, ball) {
         });
     }
 
-    if (ball.name === 'The Holy See' && ball.flash <= 0) {
-        const armW = ball.r * 0.22;
-        const vH   = ball.r * 0.70;
-        const hW   = ball.r * 0.50;
-        const cy   = -ball.r * 0.18;
+    if (ball.name === 'The Holy See' && ball.flash <= 0 && holySeeImage.complete && holySeeImage.naturalWidth > 0) {
+        const size = ball.r * 2;
         ctx.save();
-        ctx.shadowColor = '#fbbf24';
-        ctx.shadowBlur = 6;
-        ctx.fillStyle = '#fbbf24';
-        ctx.strokeStyle = '#020617';
-        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.rect(-armW / 2, -vH, armW, vH * 2);
-        ctx.fill(); ctx.stroke();
-        ctx.beginPath();
-        ctx.rect(-hW, cy - armW / 2, hW * 2, armW);
-        ctx.fill(); ctx.stroke();
+        ctx.arc(0, 0, ball.r, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(holySeeImage, -size / 2, -size / 2, size, size);
         ctx.restore();
     }
 
