@@ -138,18 +138,7 @@ function openQuickFightPicker() {
 }
 
 function buildTournamentFromSelection(selectedDefs) {
-    const roster = selectedDefs.map(base => {
-        const hpVar    = 0.9 + Math.random() * 0.2;
-        const speedVar = 0.9 + Math.random() * 0.2;
-        const dmgVar   = 0.9 + Math.random() * 0.2;
-        return {
-            ...base,
-            hp:     Math.floor(base.hp    * hpVar),
-            maxHp:  Math.floor(base.maxHp * hpVar),
-            speed:  parseFloat((base.speed * speedVar).toFixed(1)),
-            damage: Math.floor(base.damage * dmgVar)
-        };
-    }).sort(() => Math.random() - 0.5);
+    const roster = selectedDefs.map(base => ({ ...base })).sort(() => Math.random() - 0.5);
 
     state.tournamentFormat = 'SINGLE_ELIMINATION';
     const tabBracketEl = document.getElementById('tab-bracket');
@@ -208,18 +197,7 @@ function onSwissSettingsConfirmed(settings: SwissSettings) {
 }
 
 function buildSwissTournamentFromSelection(selectedDefs) {
-    const roster = selectedDefs.map(base => {
-        const hpVar    = 0.9 + Math.random() * 0.2;
-        const speedVar = 0.9 + Math.random() * 0.2;
-        const dmgVar   = 0.9 + Math.random() * 0.2;
-        return {
-            ...base,
-            hp:     Math.floor(base.hp    * hpVar),
-            maxHp:  Math.floor(base.maxHp * hpVar),
-            speed:  parseFloat((base.speed * speedVar).toFixed(1)),
-            damage: Math.floor(base.damage * dmgVar)
-        };
-    });
+    const roster = selectedDefs.map(base => ({ ...base }));
 
     state.swissStandings = roster.map(f => ({
         fighter: f, matchPoints: 0, matchWins: 0, matchLosses: 0,
@@ -583,22 +561,8 @@ export function startCustomMatch(def1, def2) {
     if (state.autoStartTimer) clearTimeout(state.autoStartTimer);
     setTournamentPanelVisible(false);
 
-    // Apply stat variance like tournament matches
-    const applyVariance = (base) => {
-        const hpVar    = 0.9 + Math.random() * 0.2;
-        const speedVar = 0.9 + Math.random() * 0.2;
-        const dmgVar   = 0.9 + Math.random() * 0.2;
-        return {
-            ...base,
-            hp:     Math.floor(base.hp    * hpVar),
-            maxHp:  Math.floor(base.maxHp * hpVar),
-            speed:  parseFloat((base.speed * speedVar).toFixed(1)),
-            damage: Math.floor(base.damage * dmgVar)
-        };
-    };
-
-    const p1 = applyVariance(def1);
-    const p2 = applyVariance(def2);
+    const p1 = { ...def1 };
+    const p2 = { ...def2 };
 
     state.ball1 = new Ball(p1);
     state.ball2 = new Ball(p2);
